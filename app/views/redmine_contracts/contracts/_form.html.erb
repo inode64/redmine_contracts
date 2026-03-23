@@ -1,0 +1,42 @@
+<%= error_messages_for @contract %>
+
+<div class="box tabular">
+  <p>
+    <%= f.text_field :name, required: true, size: 60 %>
+  </p>
+  <p>
+    <%= f.date_field :started_on, required: true %>
+  </p>
+  <p>
+    <%= f.select :status,
+                 [[l(:label_redmine_contract_status_active), 'active'], [l(:label_redmine_contract_status_closed), 'closed']],
+                 {},
+                 required: true %>
+  </p>
+  <p>
+    <%= f.text_area :notes, rows: 5, class: 'wiki-edit' %>
+  </p>
+  <p>
+    <%= f.select :imputation_custom_field_id,
+                 [[l(:label_redmine_contract_imputation_all_issues), '']] +
+                   (@boolean_issue_custom_fields || []).map { |cf| [cf.name, cf.id] } %>
+  </p>
+  <p>
+    <label><%= l(:field_imputation_version_ids) %></label>
+    <% version_param_key = "#{f.object_name}[imputation_version_ids][]" %>
+    <%= hidden_field_tag version_param_key, '' %>
+    <%= select_tag version_param_key,
+                   options_from_collection_for_select(@available_versions || [], :id, :name, @contract.selected_version_ids),
+                   multiple: true,
+                   size: 8 %>
+  </p>
+  <p>
+    <label><%= l(:field_applied_subproject_ids) %></label>
+    <% subproject_param_key = "#{f.object_name}[applied_subproject_ids][]" %>
+    <%= hidden_field_tag subproject_param_key, '' %>
+    <%= select_tag subproject_param_key,
+                   options_from_collection_for_select(@available_subprojects || [], :id, :name, @contract.selected_applied_subproject_ids),
+                   multiple: true,
+                   size: 8 %>
+  </p>
+</div>

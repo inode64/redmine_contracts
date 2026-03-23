@@ -1,0 +1,171 @@
+<div class="contextual">
+  <%= link_to l(:label_redmine_contract_hours_report),
+              {
+                controller: 'redmine_contracts/contracts',
+                action: 'report',
+                project_id: @project,
+                id: @contract
+              },
+              class: 'icon icon-stats' %>
+  <% if @can_manage_contract %>
+    <%= link_to l(:button_redmine_contract_recalculate),
+                { controller: 'redmine_contracts/contracts', action: 'recalculate', project_id: @project, id: @contract },
+                method: :post,
+                data: { confirm: l(:text_redmine_contract_recalculate_confirm) },
+                class: 'icon icon-reload' %>
+    <%= link_to l(:button_edit),
+                { controller: 'redmine_contracts/contracts', action: 'edit', project_id: @project, id: @contract },
+                class: 'icon icon-edit' %>
+  <% end %>
+</div>
+
+<%= title @contract.name %>
+
+<div class="box">
+  <% if @contract_inherited %>
+    <p><em><%= l(:label_redmine_contract_inherited_from, project: @contract.project.name) %></em></p>
+  <% end %>
+  <p><strong><%= l(:field_status) %>:</strong> <%= l("label_redmine_contract_status_#{@contract.status}".to_sym) %></p>
+  <p><strong><%= l(:field_date) %>:</strong> <%= format_date(@contract.started_on) %></p>
+  <p>
+    <strong><%= l(:label_redmine_contract_imputation_custom_field) %>:</strong>
+    <%= @contract.imputation_custom_field&.name || l(:label_redmine_contract_imputation_all_issues) %>
+  </p>
+  <p>
+    <strong><%= l(:field_imputation_version_ids) %>:</strong>
+    <% if @contract.selected_versions.any? %>
+      <%= @contract.selected_versions.map(&:name).join(', ') %>
+    <% else %>
+      <%= l(:label_redmine_contract_imputation_all_versions) %>
+    <% end %>
+  </p>
+  <p>
+    <strong><%= l(:field_applied_subproject_ids) %>:</strong>
+    <% if @contract.selected_applied_subprojects.any? %>
+      <%= @contract.selected_applied_subprojects.map(&:name).join(', ') %>
+    <% else %>
+      <%= l(:label_redmine_contract_applies_all_subprojects) %>
+    <% end %>
+  </p>
+  <p><strong><%= l(:label_redmine_contract_total_hours) %>:</strong> <%= format_contract_hours(@contract.total_hours) %></p>
+  <p><strong><%= l(:label_redmine_contract_spent_hours) %>:</strong> <%= format_contract_hours(@contract.spent_hours) %></p>
+  <p><strong><%= l(:label_redmine_contract_remaining_hours) %>:</strong> <%= format_contract_hours(@contract.remaining_hours) %></p>
+  <p><strong><%= l(:label_redmine_contract_courtesy_hours) %>:</strong> <%= format_contract_hours(@courtesy_hours) %></p>
+  <p><strong><%= l(:label_redmine_contract_progress) %>:</strong> <%= contract_progress_bar(@contract.total_hours, @contract.spent_hours) %></p>
+  <% if @contract.notes.present? %>
+    <hr>
+    <%= textilizable @contract.notes %>
+  <% end %>
+</div>
+
+<h3>
+  <%= l(:label_redmine_contract_bonuses) %>
+  <% if @can_manage_contract %>
+    <%= link_to l(:label_redmine_contract_add_bonus),
+                '#',
+                id: 'toggle-new-contract-bonus-form',
+                class: 'icon icon-add' %>
+  <% end %>
+</h3>
+
+<table class="list bonuses">
+  <thead>
+    <tr>
+      <th><%= l(:field_date) %></th>
+      <th><%= l(:label_redmine_contract_bonus_name) %></th>
+      <th><%= l(:label_redmine_contract_invoice_reference) %></th>
+      <th><%= l(:label_redmine_contract_total_hours) %></th>
+      <th><%= l(:label_redmine_contract_spent_hours) %></th>
+      <th><%= l(:label_redmine_contract_remaining_hours) %></th>
+      <th><%= l(:label_redmine_contract_progress) %></th>
+      <% if @can_manage_contract %>
+        <th><%= l(:label_redmine_contract_actions) %></th>
+      <% end %>
+    </tr>
+  </thead>
+  <tbody>
+    <% @bonus_rows.each do |row| %>
+      <% bonus = row[:bonus] %>
+      <tr>
+        <td><%= format_date(bonus.awarded_on) %></td>
+        <td><%= bonus.name %></td>
+        <td><%= bonus.invoice_reference.presence || '-' %></td>
+        <td><%= format_contract_hours(bonus.hours_total) %></td>
+        <td><%= format_contract_hours(row[:consumed_hours]) %></td>
+        <td><%= format_contract_hours(row[:remaining_hours]) %></td>
+        <td><%= contract_progress_bar(bonus.hours_total, row[:consumed_hours]) %></td>
+        <% if @can_manage_contract %>
+          <td class="buttons">
+            <%= link_to l(:button_edit),
+                        {
+                          controller: 'redmine_contracts/contract_bonuses',
+                          action: 'edit',
+                          project_id: @project,
+                          contract_id: @contract,
+                          id: bonus
+                        },
+                        class: 'icon icon-edit' %>
+            <%= link_to l(:button_delete),
+                        {
+                          controller: 'redmine_contracts/contract_bonuses',
+                          action: 'destroy',
+                          project_id: @project,
+                          contract_id: @contract,
+                          id: bonus
+                        },
+                        method: :delete,
+                        data: { confirm: l(:text_are_you_sure) },
+                        class: 'icon icon-del' %>
+          </td>
+        <% end %>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<% if @bonus_rows.empty? %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>
+
+<% if @can_manage_contract %>
+  <fieldset id="new-contract-bonus-form" class="box" style="display:none;">
+
+    <%= labelled_form_for @bonus,
+                          url: {
+                            controller: 'redmine_contracts/contract_bonuses',
+                            action: 'create',
+                            project_id: @project,
+                            contract_id: @contract
+                          } do |f| %>
+      <%= render partial: 'redmine_contracts/contract_bonuses/form', locals: { f: f } %>
+      <%= submit_tag l(:button_add) %>
+      <%= link_to l(:button_cancel), '#', id: 'cancel-new-contract-bonus-form' %>
+    <% end %>
+  </fieldset>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var toggle = document.getElementById('toggle-new-contract-bonus-form');
+      var cancel = document.getElementById('cancel-new-contract-bonus-form');
+      var formBox = document.getElementById('new-contract-bonus-form');
+      if (!toggle || !formBox) { return; }
+
+      var showForm = function(show) {
+        formBox.style.display = show ? '' : 'none';
+      };
+
+      toggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        var currentlyHidden = formBox.style.display === 'none';
+        showForm(currentlyHidden);
+      });
+
+      if (cancel) {
+        cancel.addEventListener('click', function(e) {
+          e.preventDefault();
+          showForm(false);
+        });
+      }
+    });
+  </script>
+<% end %>

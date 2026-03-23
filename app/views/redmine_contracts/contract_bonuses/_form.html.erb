@@ -1,0 +1,8 @@
+<%= error_messages_for @bonus %>
+
+<div class="box tabular">
+  <p><%= f.date_field :awarded_on, required: true %></p>
+  <p><%= f.text_field :name, required: true, size: 60 %></p>
+  <p><%= f.text_field :invoice_reference, size: 60 %></p>
+  <p><%= f.text_field :hours_total, required: true, size: 10 %></p>
+</div>

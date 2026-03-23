@@ -1,0 +1,8 @@
+<%= title l(:label_redmine_contract_edit) %>
+
+<%= labelled_form_for @contract,
+                      url: { controller: 'redmine_contracts/contracts', action: 'update', project_id: @project, id: @contract },
+                      method: :patch do |f| %>
+  <%= render partial: 'form', locals: { f: f } %>
+  <%= submit_tag l(:button_save) %>
+<% end %>

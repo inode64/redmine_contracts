@@ -1,0 +1,53 @@
+<div class="contextual">
+  <% if User.current.allowed_to?(:manage_redmine_contracts, @project) %>
+    <%= link_to l(:label_redmine_contract_new),
+                { controller: 'redmine_contracts/contracts', action: 'new', project_id: @project },
+                class: 'icon icon-add' %>
+  <% end %>
+</div>
+
+<%= title l(:label_redmine_contracts) %>
+
+<table class="list contracts">
+  <thead>
+    <tr>
+      <th><%= l(:field_name) %></th>
+      <th><%= l(:field_project) %></th>
+      <th><%= l(:field_date) %></th>
+      <th><%= l(:field_status) %></th>
+      <th><%= l(:label_redmine_contract_total_hours) %></th>
+      <th><%= l(:label_redmine_contract_spent_hours) %></th>
+      <th><%= l(:label_redmine_contract_remaining_hours) %></th>
+      <th><%= l(:label_redmine_contract_progress) %></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @contracts.each do |contract| %>
+      <tr>
+        <td>
+          <%= link_to contract.name,
+                      controller: 'redmine_contracts/contracts',
+                      action: 'show',
+                      project_id: @project,
+                      id: contract %>
+        </td>
+        <td>
+          <%= contract.project.name %>
+          <% if contract.project_id != @project.id %>
+            (<%= l(:label_redmine_contract_inherited) %>)
+          <% end %>
+        </td>
+        <td><%= format_date(contract.started_on) %></td>
+        <td><%= l("label_redmine_contract_status_#{contract.status}".to_sym) %></td>
+        <td><%= format_contract_hours(contract.total_hours) %></td>
+        <td><%= format_contract_hours(contract.spent_hours) %></td>
+        <td><%= format_contract_hours(contract.remaining_hours) %></td>
+        <td><%= contract_progress_bar(contract.total_hours, contract.spent_hours) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<% if @contracts.empty? %>
+  <p class="nodata"><%= l(:label_no_data) %></p>
+<% end %>
