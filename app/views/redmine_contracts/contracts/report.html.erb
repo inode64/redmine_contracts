@@ -26,6 +26,11 @@
                        ],
                        @group_by
                      ) %>
+      <%= hidden_field_tag :include_comments, '0' %>
+      <label class="inline">
+        <%= check_box_tag :include_comments, '1', @include_comments %>
+        <%= l(:label_redmine_contract_include_comments) %>
+      </label>
       <%= submit_tag l(:button_apply) %>
     </p>
   <% end %>
@@ -34,6 +39,7 @@
 <% if @report_rows.empty? %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
+  <% column_count = @include_comments ? 6 : 5 %>
   <table class="list">
     <thead>
       <tr>
@@ -42,13 +48,16 @@
         <th><%= l(:field_issue) %></th>
         <th><%= l(:field_fixed_version) %></th>
         <th><%= l(:field_hours) %></th>
+        <% if @include_comments %>
+          <th><%= l(:field_comments) %></th>
+        <% end %>
       </tr>
     </thead>
     <tbody>
       <% @grouped_report_rows.each do |group| %>
         <% if @group_by != 'none' %>
           <tr class="group open">
-            <td colspan="5">
+            <td colspan="<%= column_count %>">
               <strong><%= group[:label] %></strong>
               (<%= l(:label_redmine_contract_total_hours) %>: <%= format_contract_hours(group[:total_hours]) %>)
             </td>
@@ -69,6 +78,9 @@
             </td>
             <td><%= row[:version]&.name || '-' %></td>
             <td><%= format_contract_hours(row[:hours]) %></td>
+            <% if @include_comments %>
+              <td><%= row[:time_entry]&.comments.presence || '-' %></td>
+            <% end %>
           </tr>
         <% end %>
       <% end %>

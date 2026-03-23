@@ -29,6 +29,7 @@ module RedmineContracts
     def report
       @group_by = params[:group_by].to_s
       @group_by = 'none' unless %w[none week month].include?(@group_by)
+      @include_comments = ActiveModel::Type::Boolean.new.cast(params[:include_comments])
 
       @report_rows = @contract.report_rows
       @grouped_report_rows = grouped_report_rows(@report_rows, @group_by)
