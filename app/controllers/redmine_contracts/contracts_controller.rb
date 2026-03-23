@@ -33,6 +33,24 @@ module RedmineContracts
 
       @report_rows = @contract.report_rows
       @grouped_report_rows = grouped_report_rows(@report_rows, @group_by)
+
+      respond_to do |format|
+        format.html
+        format.csv do
+          send_data(
+            contract_report_to_csv(@grouped_report_rows, @group_by, @include_comments),
+            type: 'text/csv; header=present',
+            filename: "#{contract_report_export_filename}.csv"
+          )
+        end
+        format.pdf do
+          send_data(
+            contract_report_to_pdf(@grouped_report_rows, @group_by, @include_comments),
+            type: 'application/pdf',
+            filename: "#{contract_report_export_filename}.pdf"
+          )
+        end
+      end
     end
 
     def new
@@ -175,6 +193,141 @@ module RedmineContracts
     def month_label(key)
       year, month = key
       "#{l(:label_redmine_contract_group_month)} #{format('%02d', month)}/#{year}"
+    end
+
+    def contract_report_export_filename
+      slug = @contract.name.to_s.parameterize
+      slug = "contract-#{@contract.id}" if slug.blank?
+      "#{slug}-hours-report-#{Date.current.strftime('%Y%m%d')}"
+    end
+
+    def contract_report_to_csv(grouped_rows, group_by, include_comments)
+      Redmine::Export::CSV.generate(
+        encoding: params[:encoding],
+        field_separator: params[:field_separator]
+      ) do |csv|
+        headers = [
+          l(:field_date),
+          l(:field_project),
+          l(:field_issue),
+          l(:field_fixed_version),
+          l(:field_hours)
+        ]
+        headers << l(:field_comments) if include_comments
+        csv << headers
+
+        grouped_rows.each do |group|
+          if group_by != 'none'
+            group_row = [group[:label], '', '', '', group[:total_hours].to_f]
+            group_row << '' if include_comments
+            csv << group_row
+          end
+
+          group[:rows].each do |row|
+            issue = row[:issue]
+            csv_row = [
+              row[:date] ? format_date(row[:date]) : '',
+              row[:project]&.name.to_s,
+              issue ? "##{issue.id} #{issue.subject}" : '',
+              row[:version]&.name.to_s,
+              row[:hours].to_f
+            ]
+            csv_row << row[:time_entry]&.comments.to_s if include_comments
+            csv << csv_row
+          end
+        end
+      end
+    end
+
+    def contract_report_to_pdf(grouped_rows, group_by, include_comments)
+      pdf = Redmine::Export::PDF::ITCPDF.new(current_language, 'L')
+      title = "#{@project} - #{l(:label_redmine_contract_hours_report)}: #{@contract.name}"
+      pdf.set_title(title)
+      pdf.alias_nb_pages
+      pdf.footer_date = format_date(User.current.today)
+      pdf.set_auto_page_break(false)
+      pdf.add_page('L')
+
+      page_height = pdf.get_page_height
+      bottom_margin = pdf.get_footer_margin
+      row_height = 6
+      headers = [
+        l(:field_date),
+        l(:field_project),
+        l(:field_issue),
+        l(:field_fixed_version),
+        l(:field_hours)
+      ]
+      widths = include_comments ? [24, 40, 70, 35, 18, 90] : [30, 50, 105, 55, 30]
+      max_lengths = include_comments ? [15, 25, 45, 25, 10, 70] : [18, 30, 60, 30, 10]
+      headers << l(:field_comments) if include_comments
+      table_width = widths.sum
+
+      draw_table_header = lambda do
+        pdf.SetFontStyle('B', 8)
+        headers.each_with_index do |header, index|
+          pdf.RDMCell(widths[index], row_height, header, 1, index == headers.length - 1 ? 1 : 0, 'L')
+        end
+      end
+
+      pdf.SetFontStyle('B', 11)
+      pdf.RDMCell(0, 8, title, 0, 1, 'L')
+      pdf.SetFontStyle('', 9)
+      pdf.RDMCell(0, 6, "#{l(:label_redmine_contract_report_from)}: #{format_date(@contract.started_on)}", 0, 1, 'L')
+      pdf.ln(1)
+      draw_table_header.call
+
+      grouped_rows.each do |group|
+        if group_by != 'none'
+          if pdf.get_y + row_height > page_height - bottom_margin
+            pdf.add_page('L')
+            draw_table_header.call
+          end
+
+          pdf.SetFontStyle('B', 8)
+          group_label = "#{group[:label]} (#{l(:label_redmine_contract_total_hours)}: #{format('%.2f', group[:total_hours].to_f)})"
+          pdf.RDMCell(table_width, row_height, truncate_for_pdf(group_label, 160), 1, 1, 'L')
+        end
+
+        group[:rows].each do |row|
+          if pdf.get_y + row_height > page_height - bottom_margin
+            pdf.add_page('L')
+            draw_table_header.call
+          end
+
+          issue = row[:issue]
+          values = [
+            row[:date] ? format_date(row[:date]) : '-',
+            row[:project]&.name || '-',
+            issue ? "##{issue.id} #{issue.subject}" : '-',
+            row[:version]&.name || '-',
+            format('%.2f', row[:hours].to_f)
+          ]
+          values << (row[:time_entry]&.comments.presence || '-') if include_comments
+
+          pdf.SetFontStyle('', 8)
+          values.each_with_index do |value, index|
+            align = index == 4 ? 'R' : 'L'
+            pdf.RDMCell(
+              widths[index],
+              row_height,
+              truncate_for_pdf(value.to_s, max_lengths[index]),
+              1,
+              index == values.length - 1 ? 1 : 0,
+              align
+            )
+          end
+        end
+      end
+
+      pdf.output
+    end
+
+    def truncate_for_pdf(value, max_length)
+      text = value.to_s
+      return text if text.length <= max_length
+
+      "#{text[0, max_length - 3]}..."
     end
   end
 end

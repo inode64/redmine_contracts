@@ -87,3 +87,8 @@
     </tbody>
   </table>
 <% end %>
+
+<% other_formats_links do |f| %>
+  <%= f.link_to_with_query_parameters 'CSV', format: 'csv' %>
+  <%= f.link_to_with_query_parameters 'PDF', format: 'pdf' %>
+<% end %>
