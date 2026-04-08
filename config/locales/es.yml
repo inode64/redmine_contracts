@@ -1,4 +1,10 @@
 es:
+  activerecord:
+    attributes:
+      'redmine_contracts/contract_bonus':
+        awarded_on: "Fecha del bono"
+        invoice_reference: "Referencia de factura"
+        hours_total: "Horas totales"
   field_date: "Fecha"
   field_imputation_custom_field_id: "Campo booleano para imputación"
   field_imputation_version_ids: "Versiones de tareas para imputación"
