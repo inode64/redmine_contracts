@@ -31,7 +31,7 @@ module RedmineContracts
 
     def report
       @group_by = params[:group_by].to_s
-      @group_by = 'none' unless %w[none week month].include?(@group_by)
+      @group_by = 'none' unless %w[none week month bonus].include?(@group_by)
       @include_comments = ActiveModel::Type::Boolean.new.cast(params[:include_comments])
       @available_report_bonuses = @contract.bonuses.order(awarded_on: :asc, id: :asc).to_a
       @selected_report_bonus_id = selected_report_bonus_id(@available_report_bonuses)
@@ -168,6 +168,16 @@ module RedmineContracts
     def grouped_report_rows(rows, group_by)
       return [] if rows.empty?
       return [{ label: l(:label_redmine_contract_group_none), rows: rows, total_hours: rows.sum { |row| row[:hours].to_f } }] if group_by == 'none'
+      if group_by == 'bonus'
+        grouped = rows.group_by { |row| row[:bonus_label].presence || '-' }
+        return grouped.sort_by { |key, _| key.to_s.downcase }.map do |bonus_name, grouped_rows|
+          {
+            label: "#{l(:label_redmine_contract_group_bonus)}: #{bonus_name}",
+            rows: grouped_rows,
+            total_hours: grouped_rows.sum { |row| row[:hours].to_f }
+          }
+        end
+      end
 
       grouped = rows.group_by do |row|
         date = row[:date]

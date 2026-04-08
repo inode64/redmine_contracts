@@ -36,6 +36,7 @@ es:
   label_redmine_contract_group_none: "Sin agrupar"
   label_redmine_contract_group_week: "Semana"
   label_redmine_contract_group_month: "Mes"
+  label_redmine_contract_group_bonus: "Bono"
   label_redmine_contract_include_comments: "Mostrar comentario del tiempo dedicado"
   button_redmine_contract_recalculate: "Recalcular horas invertidas"
   text_redmine_contract_recalculate_confirm: "¿Recalcular horas invertidas según fechas de bonos?"

@@ -36,6 +36,7 @@ en:
   label_redmine_contract_group_none: "No grouping"
   label_redmine_contract_group_week: "Week"
   label_redmine_contract_group_month: "Month"
+  label_redmine_contract_group_bonus: "Bonus"
   label_redmine_contract_include_comments: "Show spent time comment"
   button_redmine_contract_recalculate: "Recalculate spent hours"
   text_redmine_contract_recalculate_confirm: "Recalculate spent hours by bonus dates?"
