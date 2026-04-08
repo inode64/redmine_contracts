@@ -161,20 +161,52 @@ module RedmineContracts
       courtesy_rows.sum { |row| row[:hours] }
     end
 
-    def report_rows
-      report_candidate_entries.filter_map do |entry|
+    def report_rows(bonus_id: nil)
+      selected_bonus_id = bonus_id.present? ? bonus_id.to_i : nil
+      entries = report_candidate_entries.to_a
+      allocations_by_entry_id = report_bonus_allocations_by_entry_id(entries)
+      rows = []
+
+      entries.each do |entry|
         next unless imputable_time_entry?(entry)
 
+        allocations = allocations_by_entry_id[entry.id] || []
+        filtered_allocations = if selected_bonus_id
+                                 allocations.select { |allocation| allocation[:bonus_id] == selected_bonus_id }
+                               else
+                                 allocations
+                               end
         issue = entry.issue
-        {
+        base_row = {
           time_entry: entry,
           date: entry.spent_on || entry.created_on&.to_date,
-          hours: entry.hours.to_f,
           issue: issue,
           project: issue&.project || entry.project,
           version: issue&.fixed_version
         }
+
+        if filtered_allocations.any?
+          filtered_allocations.each do |allocation|
+            allocation_hours = allocation[:hours].to_f
+            next unless allocation_hours.positive?
+
+            rows << base_row.merge(
+              hours: allocation_hours,
+              bonus_label: allocation[:bonus_name].presence || '-'
+            )
+          end
+          next
+        end
+
+        next if selected_bonus_id
+
+        entry_hours = entry.hours.to_f
+        next unless entry_hours.positive?
+
+        rows << base_row.merge(hours: entry_hours, bonus_label: '-')
       end
+
+      rows
     end
 
     def selected_applied_subproject_ids
@@ -369,6 +401,105 @@ module RedmineContracts
     def spent_hours_from_entries
       time_entries_for_recalculation.includes(:issue).sum do |entry|
         imputable_time_entry?(entry) ? entry.hours.to_f : 0.0
+      end
+    end
+
+    def report_bonus_allocations_by_entry_id(entries)
+      epsilon = 0.00001
+      ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc).to_a
+      bonuses_by_id = ordered_bonuses.index_by(&:id)
+      spent_by_bonus = Hash.new(0.0)
+      allocations_by_entry_and_bonus = Hash.new { |hash, key| hash[key] = Hash.new(0.0) }
+      debt_queue = []
+      current_bonus_index = 0
+
+      allocate_debt_to_bonus = lambda do |bonus|
+        bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
+        while bonus_capacity > epsilon && debt_queue.any?
+          debt = debt_queue.first
+          allocated = [bonus_capacity, debt[:hours].to_f].min
+          break unless allocated.positive?
+
+          allocations_by_entry_and_bonus[debt[:entry_id]][bonus.id] += allocated
+          spent_by_bonus[bonus.id] += allocated
+          debt[:hours] = debt[:hours].to_f - allocated
+          bonus_capacity -= allocated
+
+          debt_queue.shift if debt[:hours] <= epsilon
+        end
+
+        bonus_capacity
+      end
+
+      entries.each do |entry|
+        next unless imputable_time_entry?(entry)
+
+        hours_left = entry.hours.to_f
+        next unless hours_left.positive?
+
+        entry_date = entry.spent_on || entry.created_on&.to_date || Date.current
+
+        while hours_left > epsilon
+          bonus = ordered_bonuses[current_bonus_index]
+          break unless bonus
+          break if bonus.awarded_on > entry_date
+
+          bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
+          if bonus_capacity <= epsilon
+            current_bonus_index += 1
+            next
+          end
+
+          bonus_capacity = allocate_debt_to_bonus.call(bonus)
+          if bonus_capacity <= epsilon
+            current_bonus_index += 1
+            next
+          end
+
+          allocated = [hours_left, bonus_capacity].min
+          allocations_by_entry_and_bonus[entry.id][bonus.id] += allocated
+          spent_by_bonus[bonus.id] += allocated
+          hours_left -= allocated
+
+          current_bonus_index += 1 if (bonus_capacity - allocated) <= epsilon
+        end
+
+        if hours_left > epsilon
+          debt_queue << { entry_id: entry.id, hours: hours_left }
+        end
+      end
+
+      ordered_bonuses.each do |bonus|
+        break if debt_queue.empty?
+
+        bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
+        next if bonus_capacity <= epsilon
+
+        allocate_debt_to_bonus.call(bonus)
+      end
+
+      if debt_queue.any? && ordered_bonuses.any?
+        last_bonus_id = ordered_bonuses.last.id
+        debt_queue.each do |debt|
+          next unless debt[:hours].to_f > epsilon
+
+          allocations_by_entry_and_bonus[debt[:entry_id]][last_bonus_id] += debt[:hours].to_f
+        end
+      end
+
+      allocations_by_entry_and_bonus.transform_values do |bonus_hours|
+        bonus_hours.filter_map do |bonus_id, allocated_hours|
+          bonus = bonuses_by_id[bonus_id]
+          next unless bonus
+          next unless allocated_hours.to_f > epsilon
+
+          {
+            bonus_id: bonus.id,
+            bonus_name: bonus.name.to_s,
+            bonus_awarded_on: bonus.awarded_on,
+            hours: allocated_hours.to_f.round(2)
+          }
+        end.sort_by { |allocation| [allocation[:bonus_awarded_on], allocation[:bonus_id]] }
       end
     end
 

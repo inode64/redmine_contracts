@@ -33,8 +33,10 @@ module RedmineContracts
       @group_by = params[:group_by].to_s
       @group_by = 'none' unless %w[none week month].include?(@group_by)
       @include_comments = ActiveModel::Type::Boolean.new.cast(params[:include_comments])
+      @available_report_bonuses = @contract.bonuses.order(awarded_on: :asc, id: :asc).to_a
+      @selected_report_bonus_id = selected_report_bonus_id(@available_report_bonuses)
 
-      @report_rows = @contract.report_rows
+      @report_rows = @contract.report_rows(bonus_id: @selected_report_bonus_id)
       @grouped_report_rows = grouped_report_rows(@report_rows, @group_by)
 
       respond_to do |format|
@@ -214,6 +216,7 @@ module RedmineContracts
           l(:field_project),
           l(:field_issue),
           l(:field_fixed_version),
+          l(:label_redmine_contract_bonus_name),
           l(:field_hours)
         ]
         headers << l(:field_comments) if include_comments
@@ -221,7 +224,7 @@ module RedmineContracts
 
         grouped_rows.each do |group|
           if group_by != 'none'
-            group_row = [group[:label], '', '', '', group[:total_hours].to_f]
+            group_row = [group[:label], '', '', '', '', group[:total_hours].to_f]
             group_row << '' if include_comments
             csv << group_row
           end
@@ -233,6 +236,7 @@ module RedmineContracts
               row[:project]&.name.to_s,
               issue ? "##{issue.id} #{issue.subject}" : '',
               row[:version]&.name.to_s,
+              row[:bonus_label].to_s,
               row[:hours].to_f
             ]
             csv_row << row[:time_entry]&.comments.to_s if include_comments
@@ -248,6 +252,17 @@ module RedmineContracts
 
       remaining = row[:remaining_hours].to_f
       remaining.negative? ? remaining.abs : 0.0
+    end
+
+    def selected_report_bonus_id(available_bonuses)
+      raw_bonus_id = params[:bonus_id].presence
+      return nil unless raw_bonus_id
+
+      bonus_id = raw_bonus_id.to_i
+      return nil if bonus_id <= 0
+
+      available_ids = available_bonuses.map(&:id)
+      available_ids.include?(bonus_id) ? bonus_id : nil
     end
 
     def contract_report_to_pdf(grouped_rows, group_by, include_comments)
@@ -267,12 +282,14 @@ module RedmineContracts
         l(:field_project),
         l(:field_issue),
         l(:field_fixed_version),
+        l(:label_redmine_contract_bonus_name),
         l(:field_hours)
       ]
-      widths = include_comments ? [24, 40, 70, 35, 18, 90] : [30, 50, 105, 55, 30]
-      max_lengths = include_comments ? [15, 25, 45, 25, 10, 70] : [18, 30, 60, 30, 10]
+      widths = include_comments ? [20, 34, 58, 30, 45, 16, 74] : [24, 42, 80, 36, 62, 24]
+      max_lengths = include_comments ? [14, 22, 36, 18, 30, 10, 56] : [16, 24, 45, 20, 42, 10]
       headers << l(:field_comments) if include_comments
       table_width = widths.sum
+      hours_column_index = 5
 
       draw_table_header = lambda do
         pdf.SetFontStyle('B', 8)
@@ -312,13 +329,14 @@ module RedmineContracts
             row[:project]&.name || '-',
             issue ? "##{issue.id} #{issue.subject}" : '-',
             row[:version]&.name || '-',
+            row[:bonus_label].presence || '-',
             format('%.2f', row[:hours].to_f)
           ]
           values << (row[:time_entry]&.comments.presence || '-') if include_comments
 
           pdf.SetFontStyle('', 8)
           values.each_with_index do |value, index|
-            align = index == 4 ? 'R' : 'L'
+            align = index == hours_column_index ? 'R' : 'L'
             pdf.RDMCell(
               widths[index],
               row_height,

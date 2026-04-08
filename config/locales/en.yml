@@ -31,6 +31,8 @@ en:
   label_redmine_contract_hours_report: "Hours report"
   label_redmine_contract_report_from: "From"
   label_redmine_contract_group_by: "Group by"
+  label_redmine_contract_bonus_filter: "Filter by bonus"
+  label_redmine_contract_all_bonuses: "All bonuses"
   label_redmine_contract_group_none: "No grouping"
   label_redmine_contract_group_week: "Week"
   label_redmine_contract_group_month: "Month"

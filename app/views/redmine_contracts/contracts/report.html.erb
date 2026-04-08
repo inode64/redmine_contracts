@@ -26,6 +26,15 @@
                        ],
                        @group_by
                      ) %>
+      <label><%= l(:label_redmine_contract_bonus_filter) %></label>
+      <%= select_tag :bonus_id,
+                     options_for_select(
+                       [[l(:label_redmine_contract_all_bonuses), '']] +
+                       @available_report_bonuses.map do |bonus|
+                         ["#{bonus.name} (#{format_date(bonus.awarded_on)})", bonus.id]
+                       end,
+                       @selected_report_bonus_id
+                     ) %>
       <%= hidden_field_tag :include_comments, '0' %>
       <label class="inline">
         <%= check_box_tag :include_comments, '1', @include_comments %>
@@ -39,7 +48,7 @@
 <% if @report_rows.empty? %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
-  <% column_count = @include_comments ? 6 : 5 %>
+  <% column_count = @include_comments ? 7 : 6 %>
   <table class="list">
     <thead>
       <tr>
@@ -47,6 +56,7 @@
         <th><%= l(:field_project) %></th>
         <th><%= l(:field_issue) %></th>
         <th><%= l(:field_fixed_version) %></th>
+        <th><%= l(:label_redmine_contract_bonus_name) %></th>
         <th><%= l(:field_hours) %></th>
         <% if @include_comments %>
           <th><%= l(:field_comments) %></th>
@@ -77,6 +87,7 @@
               <% end %>
             </td>
             <td><%= row[:version]&.name || '-' %></td>
+            <td><%= row[:bonus_label].presence || '-' %></td>
             <td><%= format_contract_hours(row[:hours]) %></td>
             <% if @include_comments %>
               <td><%= row[:time_entry]&.comments.presence || '-' %></td>
