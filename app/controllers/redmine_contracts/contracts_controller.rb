@@ -23,6 +23,9 @@ module RedmineContracts
       @bonus_rows = @contract.bonus_rows
       @courtesy_rows = @contract.courtesy_rows
       @courtesy_hours = @courtesy_rows.sum { |row| row[:hours].to_f }
+      @previous_bonus = @bonus_rows.last&.dig(:bonus)
+      @next_bonus_name = @previous_bonus ? RedmineContracts::ContractBonus.next_correlative_name(@previous_bonus.name) : nil
+      @previous_bonus_overflow_hours = previous_bonus_overflow_hours
       @bonus = RedmineContracts::ContractBonus.new(awarded_on: Date.current)
     end
 
@@ -237,6 +240,14 @@ module RedmineContracts
           end
         end
       end
+    end
+
+    def previous_bonus_overflow_hours
+      row = @bonus_rows.last
+      return 0.0 unless row
+
+      remaining = row[:remaining_hours].to_f
+      remaining.negative? ? remaining.abs : 0.0
     end
 
     def contract_report_to_pdf(grouped_rows, group_by, include_comments)

@@ -18,6 +18,22 @@ module RedmineContracts
     after_commit :recalculate_contract_on_destroy, on: :destroy
     after_commit :recalculate_contract_on_update, on: :update
 
+    def self.next_correlative_name(previous_name)
+      base_name = previous_name.to_s.strip
+      if base_name.blank?
+        default_prefix = I18n.t(:label_redmine_contract_bonus_default_prefix, default: 'Bonus')
+        return "#{default_prefix} 1"
+      end
+
+      match = base_name.match(/\A(.*?)(\d+)\z/)
+      return "#{base_name} 2" unless match
+
+      prefix = match[1]
+      current_digits = match[2]
+      next_number = current_digits.to_i + 1
+      "#{prefix}#{next_number.to_s.rjust(current_digits.length, '0')}".strip
+    end
+
     private
 
     def recalculate_contract_on_create

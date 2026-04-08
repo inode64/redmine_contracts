@@ -1,8 +1,29 @@
 <%= error_messages_for @bonus %>
 
 <div class="box tabular">
-  <p><%= f.date_field :awarded_on, required: true %></p>
-  <p><%= f.text_field :name, required: true, size: 60 %></p>
+  <% if @bonus.new_record? && @next_bonus_name.present? %>
+    <p>
+      <%= label_tag :continue_previous_bonus, l(:label_redmine_contract_bonus_continue_previous) %>
+      <%= check_box_tag :continue_previous_bonus,
+                        '1',
+                        false,
+                        id: 'continue_previous_bonus',
+                        data: {
+                          next_name: @next_bonus_name,
+                          previous_overflow_hours: @previous_bonus_overflow_hours.to_f
+                        } %>
+      <em class="info"><%= l(:text_redmine_contract_bonus_continue_previous_help, name: @next_bonus_name) %></em>
+    </p>
+    <p id="continuation-bonus-summary" class="info" style="display:none;">
+      <%= l(:label_redmine_contract_bonus_previous_overflow) %>:
+      <strong id="continuation-bonus-overflow-hours"></strong>.
+      <%= l(:label_redmine_contract_bonus_initial_hours) %>:
+      <strong id="continuation-bonus-initial-hours"></strong>.
+    </p>
+  <% end %>
+
+  <p id="contract_bonus_awarded_on_wrapper"><%= f.date_field :awarded_on, required: true %></p>
+  <p><%= f.text_field :name, required: true, size: 60, id: 'contract_bonus_name' %></p>
   <p><%= f.text_field :invoice_reference, size: 60 %></p>
-  <p><%= f.text_field :hours_total, required: true, size: 10 %></p>
+  <p><%= f.text_field :hours_total, required: true, size: 10, id: 'contract_bonus_hours_total' %></p>
 </div>
