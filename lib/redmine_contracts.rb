@@ -6,8 +6,11 @@ require_relative 'redmine_contracts/patches/time_entry_patch'
 module RedmineContracts
   module Patches
     def self.apply
-      Project.include(RedmineContracts::Patches::ProjectPatch)
-      TimeEntry.include(RedmineContracts::Patches::TimeEntryPatch)
+      require_dependency 'project'
+      require_dependency 'time_entry'
+
+      Project.include(RedmineContracts::Patches::ProjectPatch) unless Project.include?(RedmineContracts::Patches::ProjectPatch)
+      TimeEntry.include(RedmineContracts::Patches::TimeEntryPatch) unless TimeEntry.include?(RedmineContracts::Patches::TimeEntryPatch)
     end
   end
 end
