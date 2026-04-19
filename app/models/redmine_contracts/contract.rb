@@ -244,105 +244,32 @@ module RedmineContracts
 
     def recalculate_bonus_spent_hours!
       ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc).to_a
-      entries = time_entries_for_recalculation.order(spent_on: :asc, id: :asc)
-      spent_by_bonus = Hash.new(0.0)
-      debt_hours = 0.0
-      uncovered_hours = 0.0
-      negative_hours = 0.0
-      linked_entries = 0
-      current_bonus_index = 0
+      eligible_entries = time_entries_for_recalculation
+                         .order(spent_on: :asc, id: :asc)
+                         .select { |entry| imputable_time_entry?(entry) && entry.hours.to_f.positive? }
 
-      entries.each do |entry|
-        entry_imputable = imputable_time_entry?(entry)
-        next unless entry_imputable
+      result = allocate_entries_to_bonuses(eligible_entries, ordered_bonuses)
 
-        hours_left = entry.hours.to_f
-        next if hours_left <= 0
+      linked_entries = eligible_entries.count do |entry|
+        next false unless entry.contract_id.nil?
 
-        entry_date = entry.spent_on || entry.created_on&.to_date || Date.current
-
-        # Activate bonuses available at entry date and use them first to cover prior debt.
-        loop do
-          bonus = ordered_bonuses[current_bonus_index]
-          break unless bonus
-          break if bonus.awarded_on > entry_date
-
-          bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-          if bonus_capacity <= 0
-            current_bonus_index += 1
-            next
-          end
-
-          debt_allocation = [debt_hours, bonus_capacity].min
-          if debt_allocation.positive?
-            spent_by_bonus[bonus.id] += debt_allocation
-            debt_hours -= debt_allocation
-          end
-          break
-        end
-
-        while hours_left.positive?
-          bonus = ordered_bonuses[current_bonus_index]
-          break unless bonus
-          break if bonus.awarded_on > entry_date
-
-          bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-          if bonus_capacity <= 0
-            current_bonus_index += 1
-            next
-          end
-
-          allocated = [hours_left, bonus_capacity].min
-          spent_by_bonus[bonus.id] += allocated
-          hours_left -= allocated
-        end
-
-        debt_hours += hours_left if hours_left.positive?
-
-        # Link subtree entries even if they currently produce negative balance.
-        if entry.contract_id.nil?
-          entry.update_column(:contract_id, id)
-          linked_entries += 1
-        end
-      end
-
-      # Future bonuses (including newly added ones) first absorb prior debt.
-      ordered_bonuses.each do |bonus|
-        next unless debt_hours.positive?
-
-        bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-        next if bonus_capacity <= 0
-
-        debt_allocation = [debt_hours, bonus_capacity].min
-        spent_by_bonus[bonus.id] += debt_allocation
-        debt_hours -= debt_allocation
-      end
-
-      # If there is still debt, keep it as negative on the latest bonus line.
-      if debt_hours.positive?
-        if ordered_bonuses.any?
-          last_bonus = ordered_bonuses.last
-          spent_by_bonus[last_bonus.id] += debt_hours
-          negative_hours = debt_hours
-          debt_hours = 0.0
-        else
-          uncovered_hours = debt_hours
-        end
+        entry.update_column(:contract_id, id)
+        true
       end
 
       transaction do
         ordered_bonuses.each do |bonus|
           bonus.update_columns(
-            hours_spent_cache: spent_by_bonus[bonus.id].round(2),
+            hours_spent_cache: result[:spent_by_bonus][bonus.id].round(2),
             updated_at: Time.current
           )
         end
       end
 
       {
-        allocated_hours: spent_by_bonus.values.sum.round(2),
-        uncovered_hours: uncovered_hours.round(2),
-        negative_hours: negative_hours.round(2),
+        allocated_hours: result[:spent_by_bonus].values.sum.round(2),
+        uncovered_hours: result[:uncovered_hours].round(2),
+        negative_hours: result[:negative_hours].round(2),
         linked_entries: linked_entries
       }
     end
@@ -417,86 +344,11 @@ module RedmineContracts
       epsilon = 0.00001
       ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc).to_a
       bonuses_by_id = ordered_bonuses.index_by(&:id)
-      spent_by_bonus = Hash.new(0.0)
-      allocations_by_entry_and_bonus = Hash.new { |hash, key| hash[key] = Hash.new(0.0) }
-      debt_queue = []
-      current_bonus_index = 0
+      eligible_entries = entries.select { |entry| imputable_time_entry?(entry) && entry.hours.to_f.positive? }
 
-      allocate_debt_to_bonus = lambda do |bonus|
-        bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-        while bonus_capacity > epsilon && debt_queue.any?
-          debt = debt_queue.first
-          allocated = [bonus_capacity, debt[:hours].to_f].min
-          break unless allocated.positive?
+      result = allocate_entries_to_bonuses(eligible_entries, ordered_bonuses)
 
-          allocations_by_entry_and_bonus[debt[:entry_id]][bonus.id] += allocated
-          spent_by_bonus[bonus.id] += allocated
-          debt[:hours] = debt[:hours].to_f - allocated
-          bonus_capacity -= allocated
-
-          debt_queue.shift if debt[:hours] <= epsilon
-        end
-
-        bonus_capacity
-      end
-
-      entries.each do |entry|
-        next unless imputable_time_entry?(entry)
-
-        hours_left = entry.hours.to_f
-        next unless hours_left.positive?
-
-        entry_date = entry.spent_on || entry.created_on&.to_date || Date.current
-
-        while hours_left > epsilon
-          bonus = ordered_bonuses[current_bonus_index]
-          break unless bonus
-          break if bonus.awarded_on > entry_date
-
-          bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-          if bonus_capacity <= epsilon
-            current_bonus_index += 1
-            next
-          end
-
-          bonus_capacity = allocate_debt_to_bonus.call(bonus)
-          if bonus_capacity <= epsilon
-            current_bonus_index += 1
-            next
-          end
-
-          allocated = [hours_left, bonus_capacity].min
-          allocations_by_entry_and_bonus[entry.id][bonus.id] += allocated
-          spent_by_bonus[bonus.id] += allocated
-          hours_left -= allocated
-
-          current_bonus_index += 1 if (bonus_capacity - allocated) <= epsilon
-        end
-
-        if hours_left > epsilon
-          debt_queue << { entry_id: entry.id, hours: hours_left }
-        end
-      end
-
-      ordered_bonuses.each do |bonus|
-        break if debt_queue.empty?
-
-        bonus_capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
-        next if bonus_capacity <= epsilon
-
-        allocate_debt_to_bonus.call(bonus)
-      end
-
-      if debt_queue.any? && ordered_bonuses.any?
-        last_bonus_id = ordered_bonuses.last.id
-        debt_queue.each do |debt|
-          next unless debt[:hours].to_f > epsilon
-
-          allocations_by_entry_and_bonus[debt[:entry_id]][last_bonus_id] += debt[:hours].to_f
-        end
-      end
-
-      allocations_by_entry_and_bonus.transform_values do |bonus_hours|
+      result[:allocations_by_entry].transform_values do |bonus_hours|
         bonus_hours.filter_map do |bonus_id, allocated_hours|
           bonus = bonuses_by_id[bonus_id]
           next unless bonus
@@ -510,6 +362,97 @@ module RedmineContracts
           }
         end.sort_by { |allocation| [allocation[:bonus_awarded_on], allocation[:bonus_id]] }
       end
+    end
+
+    # Shared FIFO allocator used by recalculate_bonus_spent_hours! and the report:
+    # drains a per-entry debt queue against bonuses in award order. Remaining debt
+    # spills onto the latest bonus as negative balance, or becomes uncovered hours
+    # when there are no bonuses at all.
+    def allocate_entries_to_bonuses(entries, ordered_bonuses)
+      epsilon = 0.00001
+      spent_by_bonus = Hash.new(0.0)
+      allocations_by_entry = Hash.new { |hash, key| hash[key] = Hash.new(0.0) }
+      debt_queue = []
+      current_bonus_index = 0
+
+      drain_debt_into = lambda do |bonus|
+        capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
+        while capacity > epsilon && debt_queue.any?
+          debt = debt_queue.first
+          allocated = [capacity, debt[:hours]].min
+          break unless allocated.positive?
+
+          allocations_by_entry[debt[:entry_id]][bonus.id] += allocated
+          spent_by_bonus[bonus.id] += allocated
+          debt[:hours] -= allocated
+          capacity -= allocated
+
+          debt_queue.shift if debt[:hours] <= epsilon
+        end
+        capacity
+      end
+
+      entries.each do |entry|
+        hours_left = entry.hours.to_f
+        entry_date = entry.spent_on || entry.created_on&.to_date || Date.current
+
+        while hours_left > epsilon
+          bonus = ordered_bonuses[current_bonus_index]
+          break unless bonus
+          break if bonus.awarded_on > entry_date
+
+          capacity = bonus.hours_total.to_f - spent_by_bonus[bonus.id]
+          if capacity <= epsilon
+            current_bonus_index += 1
+            next
+          end
+
+          capacity = drain_debt_into.call(bonus)
+          if capacity <= epsilon
+            current_bonus_index += 1
+            next
+          end
+
+          allocated = [hours_left, capacity].min
+          allocations_by_entry[entry.id][bonus.id] += allocated
+          spent_by_bonus[bonus.id] += allocated
+          hours_left -= allocated
+
+          current_bonus_index += 1 if (capacity - allocated) <= epsilon
+        end
+
+        debt_queue << { entry_id: entry.id, hours: hours_left } if hours_left > epsilon
+      end
+
+      ordered_bonuses.each do |bonus|
+        break if debt_queue.empty?
+
+        drain_debt_into.call(bonus)
+      end
+
+      uncovered_hours = 0.0
+      negative_hours = 0.0
+      if debt_queue.any?
+        if ordered_bonuses.any?
+          last_bonus_id = ordered_bonuses.last.id
+          debt_queue.each do |debt|
+            next unless debt[:hours] > epsilon
+
+            allocations_by_entry[debt[:entry_id]][last_bonus_id] += debt[:hours]
+            spent_by_bonus[last_bonus_id] += debt[:hours]
+            negative_hours += debt[:hours]
+          end
+        else
+          uncovered_hours = debt_queue.sum { |debt| debt[:hours] }
+        end
+      end
+
+      {
+        spent_by_bonus: spent_by_bonus,
+        allocations_by_entry: allocations_by_entry,
+        uncovered_hours: uncovered_hours,
+        negative_hours: negative_hours
+      }
     end
 
     def validate_imputation_custom_field
