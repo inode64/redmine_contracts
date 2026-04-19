@@ -1,4 +1,11 @@
 <div class="contextual">
+  <%= link_to l(:button_cancel),
+              {
+                controller: 'redmine_contracts/contracts',
+                action: 'index',
+                project_id: @project
+              },
+              class: 'icon icon-cancel' %>
   <%= link_to l(:label_redmine_contract_hours_report),
               {
                 controller: 'redmine_contracts/contracts',
