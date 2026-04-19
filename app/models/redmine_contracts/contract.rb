@@ -473,17 +473,10 @@ module RedmineContracts
 
     def validate_applied_subprojects
       ids = selected_applied_subproject_ids
-      return if ids.empty?
-      return if project_id.blank?
+      return if ids.empty? || project.nil?
 
-      valid_ids = Project.where(id: ids).pluck(:id)
-      if (ids - valid_ids).any?
-        errors.add(:applied_subproject_ids, :invalid)
-        return
-      end
-
-      invalid_scope = ids.reject { |subproject_id| project_in_owner_tree?(Project.find_by(id: subproject_id)) }
-      errors.add(:applied_subproject_ids, :invalid) if invalid_scope.any?
+      valid_ids = project.self_and_descendants.where(id: ids).pluck(:id)
+      errors.add(:applied_subproject_ids, :invalid) if (ids - valid_ids).any?
     end
 
     def validate_report_visible_fields
