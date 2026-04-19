@@ -81,6 +81,7 @@ module RedmineContracts
 
     def update
       if @contract.update(contract_params)
+        @contract.recalculate_bonus_spent_hours! if @contract.recalculate_required_for_saved_changes?
         flash[:notice] = l(:notice_successful_update)
         redirect_to controller: 'redmine_contracts/contracts', action: 'show', project_id: @project, id: @contract
       else
@@ -118,7 +119,8 @@ module RedmineContracts
       custom_field = @contract.report_category_custom_field
       return render_404 unless custom_field && @contract.category_editable_in_report?
 
-      issue = Issue.find(params[:issue_id])
+      issue = Issue.find_by(id: params[:issue_id])
+      return render_404 unless issue && @contract.reportable_issue?(issue)
       return render_403 unless User.current.allowed_to?(:edit_issues, issue.project)
 
       new_value = params.dig(:issue, :custom_field_values, custom_field.id.to_s)

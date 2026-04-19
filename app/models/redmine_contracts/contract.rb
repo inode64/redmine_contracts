@@ -6,6 +6,12 @@ module RedmineContracts
     AVAILABLE_REPORT_FIELD_KEYS = %w[date project issue version bonus hours].freeze
     REPORT_CUSTOM_FIELD_KEY_PATTERN = /\A(?<scope>issue|time_entry)_cf_(?<id>\d+)\z/.freeze
     DEFAULT_REPORT_FIELD_KEYS = AVAILABLE_REPORT_FIELD_KEYS.dup.freeze
+    RECALCULATION_TRIGGER_FIELDS = %w[
+      started_on
+      imputation_custom_field_id
+      imputation_version_ids
+      applied_subproject_ids
+    ].freeze
 
     def self.custom_report_field_key(scope, custom_field_id)
       "#{scope}_cf_#{custom_field_id}"
@@ -97,7 +103,7 @@ module RedmineContracts
       project_obj = project.is_a?(Project) ? project : Project.find_by(id: project)
       return nil unless project_obj
 
-      project_lineage_ids(project_obj).each do |project_id|
+      project_lineage_ids(project_obj).reverse_each do |project_id|
         active.where(project_id: project_id).order(started_on: :desc, id: :desc).each do |contract|
           next unless contract.applies_to_project?(project_obj)
 
@@ -210,6 +216,19 @@ module RedmineContracts
       end
 
       rows
+    end
+
+    def reportable_issue?(issue)
+      issue_obj = issue.is_a?(Issue) ? issue : Issue.find_by(id: issue)
+      return false unless issue_obj
+
+      report_candidate_entries.where(issue_id: issue_obj.id).any? do |entry|
+        entry.hours.to_f.positive? && imputable_time_entry?(entry)
+      end
+    end
+
+    def recalculate_required_for_saved_changes?
+      previous_changes.keys.intersect?(RECALCULATION_TRIGGER_FIELDS)
     end
 
     def selected_applied_subproject_ids = normalize_project_ids(applied_subproject_ids)
