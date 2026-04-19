@@ -1,6 +1,8 @@
 es:
   activerecord:
     attributes:
+      'redmine_contracts/contract':
+        imputation_custom_field_id: "Campo booleano para imputación"
       'redmine_contracts/contract_bonus':
         awarded_on: "Fecha del bono"
         invoice_reference: "Referencia de factura"
