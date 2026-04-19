@@ -166,13 +166,17 @@ module RedmineContracts
 
     def grouped_report_rows(rows, time_group_by, detail_group_by)
       return [] if rows.empty?
-      grouped_by_time = rows.group_by { |row| time_group_key(row, time_group_by) }
-                            .sort_by { |key, _| key }
+      grouped_by_time = if time_group_by == 'none'
+                          [[nil, rows]]
+                        else
+                          rows.group_by { |row| time_group_key(row, time_group_by) }
+                              .sort_by { |key, _| key }
+                        end
 
       grouped_by_time.map do |time_key, grouped_rows|
         {
           label: time_group_label(time_group_by, time_key),
-          show_label: true,
+          show_label: time_group_by != 'none',
           total_hours: grouped_rows.sum { |row| row[:hours].to_f },
           subgroups: grouped_report_subgroups(grouped_rows, detail_group_by)
         }
@@ -180,6 +184,17 @@ module RedmineContracts
     end
 
     def grouped_report_subgroups(rows, detail_group_by)
+      if detail_group_by == 'none'
+        return [
+          {
+            label: nil,
+            show_label: false,
+            rows: rows,
+            total_hours: rows.sum { |row| row[:hours].to_f }
+          }
+        ]
+      end
+
       grouped = rows.group_by { |row| detail_group_key(row, detail_group_by) }
       grouped.sort_by { |key, _| key.to_s.downcase }.map do |key, grouped_rows|
         {
@@ -205,6 +220,8 @@ module RedmineContracts
     end
 
     def time_group_label(time_group_by, key)
+      return nil if time_group_by == 'none'
+
       if time_group_by == 'week'
         week_label(key)
       else
@@ -316,7 +333,7 @@ module RedmineContracts
           time_group_by = legacy_group_by
           detail_group_by = 'bonus'
         when 'bonus'
-          time_group_by = 'week'
+          time_group_by = 'none'
           detail_group_by = 'bonus'
         else
           time_group_by = 'week'
@@ -324,8 +341,8 @@ module RedmineContracts
         end
       end
 
-      time_group_by = 'week' unless %w[week month].include?(time_group_by)
-      detail_group_by = 'bonus' unless %w[bonus project].include?(detail_group_by)
+      time_group_by = 'week' unless %w[none week month].include?(time_group_by)
+      detail_group_by = 'bonus' unless %w[none bonus project].include?(detail_group_by)
       [time_group_by, detail_group_by]
     end
 
