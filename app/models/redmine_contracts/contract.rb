@@ -528,26 +528,18 @@ module RedmineContracts
       issue.custom_field_values.any? { |cfv| cfv.custom_field_id.to_i == custom_field_id.to_i }
     end
 
-    def normalize_version_ids(value)
-      Array(value)
-        .flat_map { |item| item.to_s.split(',') }
-        .map(&:strip)
-        .reject(&:blank?)
-        .map(&:to_i)
-        .uniq
+    def normalize_csv_tokens(value)
+      Array(value).flat_map { |item| item.to_s.split(',') }.map(&:strip).reject(&:blank?)
     end
 
-    def normalize_project_ids(value)
-      normalize_version_ids(value)
+    def normalize_version_ids(value)
+      normalize_csv_tokens(value).map(&:to_i).uniq
     end
+
+    alias normalize_project_ids normalize_version_ids
 
     def normalize_report_field_keys(value)
-      Array(value)
-        .flat_map { |item| item.to_s.split(',') }
-        .map(&:strip)
-        .reject(&:blank?)
-        .uniq
-        .select { |key| report_field_key_valid?(key) }
+      normalize_csv_tokens(value).uniq.select { |key| report_field_key_valid?(key) }
     end
 
     def report_field_key_valid?(key)
