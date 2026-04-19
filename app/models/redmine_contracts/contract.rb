@@ -161,7 +161,7 @@ module RedmineContracts
         next unless courtesy_time_entry?(entry)
 
         {
-          entry: entry,
+          entry:,
           issue: entry.issue,
           project: entry.issue&.project || entry.project,
           hours: entry.hours.to_f
@@ -192,7 +192,7 @@ module RedmineContracts
         base_row = {
           time_entry: entry,
           date: entry.spent_on || entry.created_on&.to_date,
-          issue: issue,
+          issue:,
           project: issue&.project || entry.project,
           version: issue&.fixed_version
         }
@@ -271,7 +271,7 @@ module RedmineContracts
         allocated_hours: result[:spent_by_bonus].values.sum.round(2),
         uncovered_hours: result[:uncovered_hours].round(2),
         negative_hours: result[:negative_hours].round(2),
-        linked_entries: linked_entries
+        linked_entries:
       }
     end
 
@@ -310,7 +310,7 @@ module RedmineContracts
         remaining = total - consumed
 
         {
-          bonus: bonus,
+          bonus:,
           consumed_hours: consumed,
           remaining_hours: remaining
         }
@@ -327,7 +327,7 @@ module RedmineContracts
         remaining_to_allocate -= consumed
 
         {
-          bonus: bonus,
+          bonus:,
           consumed_hours: consumed,
           remaining_hours: remaining
         }
@@ -448,10 +448,10 @@ module RedmineContracts
       end
 
       {
-        spent_by_bonus: spent_by_bonus,
-        allocations_by_entry: allocations_by_entry,
-        uncovered_hours: uncovered_hours,
-        negative_hours: negative_hours
+        spent_by_bonus:,
+        allocations_by_entry:,
+        uncovered_hours:,
+        negative_hours:
       }
     end
 
