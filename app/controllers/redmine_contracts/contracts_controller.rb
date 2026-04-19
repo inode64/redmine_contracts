@@ -156,22 +156,13 @@ module RedmineContracts
     end
 
     def load_available_versions
-      lineage_ids = RedmineContracts::Contract.project_lineage_ids(@project)
-      descendant_ids = if @project.respond_to?(:self_and_descendants)
-                         @project.self_and_descendants.pluck(:id)
-                       else
-                         [@project.id]
-                       end
-      project_ids = (lineage_ids + descendant_ids).uniq
+      project_ids = (RedmineContracts::Contract.project_lineage_ids(@project) +
+                     @project.self_and_descendants.pluck(:id)).uniq
       @available_versions = Version.where(project_id: project_ids).order(:name)
     end
 
     def load_available_subprojects
-      @available_subprojects = if @project.respond_to?(:descendants)
-                                 @project.descendants.order(:name)
-                               else
-                                 []
-                               end
+      @available_subprojects = @project.descendants.order(:name)
     end
 
     def load_report_visible_field_options

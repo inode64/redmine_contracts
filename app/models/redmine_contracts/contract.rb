@@ -98,14 +98,7 @@ module RedmineContracts
 
     def self.project_lineage_ids(project)
       current = project.is_a?(Project) ? project : Project.find_by(id: project)
-      ids = []
-
-      while current
-        ids << current.id
-        current = current.parent
-      end
-
-      ids
+      current ? current.self_and_ancestors.pluck(:id) : []
     end
 
     def self.visible_from_project(project)
@@ -385,8 +378,6 @@ module RedmineContracts
     end
 
     def project_tree_ids
-      return [project_id] unless project.respond_to?(:self_and_descendants)
-
       project.self_and_descendants.pluck(:id)
     end
 
@@ -656,17 +647,9 @@ module RedmineContracts
     end
 
     def project_in_owner_tree?(candidate_project)
-      return false unless candidate_project
-      return true if candidate_project.id == project_id
+      return false unless candidate_project && project
 
-      current = candidate_project
-      while current
-        return true if current.id == project_id
-
-        current = current.parent
-      end
-
-      false
+      project.is_or_is_ancestor_of?(candidate_project)
     end
 
     def read_optional_attribute(name)
