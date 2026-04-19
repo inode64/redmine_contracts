@@ -50,10 +50,7 @@ module RedmineContracts
     validate :validate_applied_subprojects
     validate :validate_report_visible_fields
 
-    scope :for_project, lambda { |project|
-      project_id = project.is_a?(Project) ? project.id : project
-      where(project_id: project_id)
-    }
+    scope :for_project, ->(project) { where(project:) }
     scope :for_projects, ->(project_ids) { where(project_id: Array(project_ids)) }
     scope :active, -> { where(status: 'active') }
 
@@ -275,12 +272,9 @@ module RedmineContracts
       return TimeEntry.none unless started_on
       return TimeEntry.none unless bonuses.exists?
 
-      subtree_ids = applicable_project_ids
-      TimeEntry.where(
-        "contract_id = :contract_id OR (contract_id IS NULL AND project_id IN (:project_ids))",
-        contract_id: id,
-        project_ids: subtree_ids
-      ).where('spent_on >= ?', started_on)
+      linked = TimeEntry.where(contract_id: id)
+      inheritable = TimeEntry.where(contract_id: nil, project_id: applicable_project_ids)
+      linked.or(inheritable).where(spent_on: started_on..)
     end
 
     def project_tree_ids
@@ -543,22 +537,21 @@ module RedmineContracts
       AVAILABLE_REPORT_FIELD_KEYS.include?(normalized) || normalized.match?(REPORT_CUSTOM_FIELD_KEY_PATTERN)
     end
 
-    def courtesy_candidate_entries
-      TimeEntry.where(project_id: applicable_project_ids)
-               .where('spent_on >= ?', started_on)
-               .where.not(issue_id: nil)
-               .includes(:project, issue: :custom_values)
-               .order(spent_on: :asc, id: :asc)
-    end
-
-    def report_candidate_entries
+    def base_candidate_entries
       return TimeEntry.none unless started_on
 
       TimeEntry.where(project_id: applicable_project_ids)
-               .where('spent_on >= ?', started_on)
+               .where(spent_on: started_on..)
                .where.not(issue_id: nil)
-               .includes(:project, :custom_values, issue: %i[fixed_version custom_values])
-               .order(spent_on: :asc, id: :asc)
+               .order(:spent_on, :id)
+    end
+
+    def courtesy_candidate_entries
+      base_candidate_entries.includes(:project, issue: :custom_values)
+    end
+
+    def report_candidate_entries
+      base_candidate_entries.includes(:project, :custom_values, issue: %i[fixed_version custom_values])
     end
 
     def project_in_owner_tree?(candidate_project)
@@ -569,9 +562,7 @@ module RedmineContracts
 
     def truthy_custom_value?(value)
       raw = value.respond_to?(:value) ? value.value : value
-      return raw if raw == true || raw == false
-
-      %w[1 true t yes y on].include?(raw.to_s.strip.downcase)
+      ActiveModel::Type::Boolean.new.cast(raw) == true
     end
   end
 end
