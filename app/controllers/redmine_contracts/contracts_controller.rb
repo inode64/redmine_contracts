@@ -8,10 +8,12 @@ module RedmineContracts
     before_action :load_boolean_issue_custom_fields, only: %i[new create edit update]
     before_action :load_available_versions, only: %i[new create edit update]
     before_action :load_available_subprojects, only: %i[new create edit update]
+    before_action :load_report_visible_field_options, only: %i[new create edit update]
     before_action :authorize
 
     helper :sort
     helper :custom_fields
+    helper_method :report_column_label, :report_column_display_value
 
     def index
       @contracts = RedmineContracts::Contract.visible_from_project(@project)
@@ -36,20 +38,21 @@ module RedmineContracts
       @selected_report_bonus_id = selected_report_bonus_id(@available_report_bonuses)
 
       @report_rows = @contract.report_rows(bonus_id: @selected_report_bonus_id)
+      @report_column_keys = selected_report_column_keys(@include_comments)
       @grouped_report_rows = grouped_report_rows(@report_rows, @time_group_by, @detail_group_by)
 
       respond_to do |format|
         format.html
         format.csv do
           send_data(
-            contract_report_to_csv(@grouped_report_rows, @include_comments),
+            contract_report_to_csv(@grouped_report_rows, @report_column_keys),
             type: 'text/csv; header=present',
             filename: "#{contract_report_export_filename}.csv"
           )
         end
         format.pdf do
           send_data(
-            contract_report_to_pdf(@grouped_report_rows, @include_comments),
+            contract_report_to_pdf(@grouped_report_rows, @report_column_keys),
             type: 'application/pdf',
             filename: "#{contract_report_export_filename}.pdf"
           )
@@ -137,7 +140,8 @@ module RedmineContracts
         :notes,
         :imputation_custom_field_id,
         imputation_version_ids: [],
-        applied_subproject_ids: []
+        applied_subproject_ids: [],
+        report_visible_field_keys: []
       )
     end
 
@@ -162,6 +166,22 @@ module RedmineContracts
                                else
                                  []
                                end
+    end
+
+    def load_report_visible_field_options
+      fixed_options = RedmineContracts::Contract::AVAILABLE_REPORT_FIELD_KEYS.map do |key|
+        [report_column_label(key), key]
+      end
+      issue_custom_options = available_issue_report_custom_fields.map do |custom_field|
+        key = custom_report_field_key('issue', custom_field.id)
+        [report_column_label(key), key]
+      end
+      time_entry_custom_options = available_time_entry_report_custom_fields.map do |custom_field|
+        key = custom_report_field_key('time_entry', custom_field.id)
+        [report_column_label(key), key]
+      end
+
+      @available_report_visible_field_options = fixed_options + issue_custom_options + time_entry_custom_options
     end
 
     def grouped_report_rows(rows, time_group_by, detail_group_by)
@@ -255,48 +275,40 @@ module RedmineContracts
       "#{slug}-hours-report-#{Date.current.strftime('%Y%m%d')}"
     end
 
-    def contract_report_to_csv(grouped_rows, include_comments)
+    def contract_report_to_csv(grouped_rows, column_keys)
       Redmine::Export::CSV.generate(
         encoding: params[:encoding],
         field_separator: params[:field_separator]
       ) do |csv|
-        headers = [
-          l(:field_date),
-          l(:field_project),
-          l(:field_issue),
-          l(:field_fixed_version),
-          l(:label_redmine_contract_bonus_name),
-          l(:field_hours)
-        ]
-        headers << l(:field_comments) if include_comments
-        csv << headers
+        csv << column_keys.map { |key| report_column_label(key) }
+        hours_column_index = column_keys.index('hours')
 
         grouped_rows.each do |group|
           if group[:show_label]
-            group_row = [group[:label], '', '', '', '', group[:total_hours].to_f]
-            group_row << '' if include_comments
+            group_row = Array.new(column_keys.length, '')
+            if hours_column_index
+              group_row[0] = group[:label]
+              group_row[hours_column_index] = group[:total_hours].to_f
+            else
+              group_row[0] = "#{group[:label]} (#{l(:label_redmine_contract_total_hours)}: #{format('%.2f', group[:total_hours].to_f)})"
+            end
             csv << group_row
           end
 
           group[:subgroups].each do |subgroup|
             if subgroup[:show_label]
-              subgroup_row = ["  #{subgroup[:label]}", '', '', '', '', subgroup[:total_hours].to_f]
-              subgroup_row << '' if include_comments
+              subgroup_row = Array.new(column_keys.length, '')
+              if hours_column_index
+                subgroup_row[0] = "  #{subgroup[:label]}"
+                subgroup_row[hours_column_index] = subgroup[:total_hours].to_f
+              else
+                subgroup_row[0] = "  #{subgroup[:label]} (#{l(:label_redmine_contract_total_hours)}: #{format('%.2f', subgroup[:total_hours].to_f)})"
+              end
               csv << subgroup_row
             end
 
             subgroup[:rows].each do |row|
-              issue = row[:issue]
-              csv_row = [
-                row[:date] ? format_date(row[:date]) : '',
-                row[:project]&.name.to_s,
-                issue ? "##{issue.id} #{issue.subject}" : '',
-                row[:version]&.name.to_s,
-                row[:bonus_label].to_s,
-                row[:hours].to_f
-              ]
-              csv_row << row[:time_entry]&.comments.to_s if include_comments
-              csv << csv_row
+              csv << column_keys.map { |key| report_column_csv_value(row, key) }
             end
           end
         end
@@ -346,7 +358,13 @@ module RedmineContracts
       [time_group_by, detail_group_by]
     end
 
-    def contract_report_to_pdf(grouped_rows, include_comments)
+    def selected_report_column_keys(include_comments)
+      keys = @contract.selected_report_visible_field_keys.dup
+      keys << 'comments' if include_comments
+      keys
+    end
+
+    def contract_report_to_pdf(grouped_rows, column_keys)
       pdf = Redmine::Export::PDF::ITCPDF.new(current_language, 'L')
       title = "#{@project} - #{l(:label_redmine_contract_hours_report)}: #{@contract.name}"
       pdf.set_title(title)
@@ -358,19 +376,10 @@ module RedmineContracts
       page_height = pdf.get_page_height
       bottom_margin = pdf.get_footer_margin
       row_height = 6
-      headers = [
-        l(:field_date),
-        l(:field_project),
-        l(:field_issue),
-        l(:field_fixed_version),
-        l(:label_redmine_contract_bonus_name),
-        l(:field_hours)
-      ]
-      widths = include_comments ? [20, 34, 58, 30, 45, 16, 74] : [24, 42, 80, 36, 62, 24]
-      max_lengths = include_comments ? [14, 22, 36, 18, 30, 10, 56] : [16, 24, 45, 20, 42, 10]
-      headers << l(:field_comments) if include_comments
+      headers = column_keys.map { |key| report_column_label(key) }
+      widths = column_keys.map { |key| report_column_pdf_width(key) }
+      max_lengths = column_keys.map { |key| report_column_pdf_max_length(key) }
       table_width = widths.sum
-      hours_column_index = 5
 
       draw_table_header = lambda do
         pdf.SetFontStyle('B', 8)
@@ -416,20 +425,11 @@ module RedmineContracts
               draw_table_header.call
             end
 
-            issue = row[:issue]
-            values = [
-              row[:date] ? format_date(row[:date]) : '-',
-              row[:project]&.name || '-',
-              issue ? "##{issue.id} #{issue.subject}" : '-',
-              row[:version]&.name || '-',
-              row[:bonus_label].presence || '-',
-              format('%.2f', row[:hours].to_f)
-            ]
-            values << (row[:time_entry]&.comments.presence || '-') if include_comments
+            values = column_keys.map { |key| report_column_display_value(row, key) }
 
             pdf.SetFontStyle('', 8)
             values.each_with_index do |value, index|
-              align = index == hours_column_index ? 'R' : 'L'
+              align = report_column_align(column_keys[index])
               pdf.RDMCell(
                 widths[index],
                 row_height,
@@ -444,6 +444,157 @@ module RedmineContracts
       end
 
       pdf.output
+    end
+
+    def report_column_label(key)
+      case key.to_s
+      when 'date' then l(:field_date)
+      when 'project' then l(:field_project)
+      when 'issue' then l(:field_issue)
+      when 'version' then l(:field_fixed_version)
+      when 'bonus' then l(:label_redmine_contract_bonus_name)
+      when 'hours' then l(:field_hours)
+      when 'comments' then l(:field_comments)
+      else
+        custom_field_info = parse_custom_report_field_key(key)
+        return key.to_s.humanize unless custom_field_info
+
+        custom_field = find_custom_report_field(custom_field_info[:scope], custom_field_info[:id])
+        custom_field&.name || "CF ##{custom_field_info[:id]}"
+      end
+    end
+
+    def report_column_display_value(row, key)
+      issue = row[:issue]
+
+      case key.to_s
+      when 'date'
+        row[:date] ? format_date(row[:date]) : '-'
+      when 'project'
+        row[:project]&.name || '-'
+      when 'issue'
+        issue ? "##{issue.id} #{issue.subject}" : '-'
+      when 'version'
+        row[:version]&.name || '-'
+      when 'bonus'
+        row[:bonus_label].presence || '-'
+      when 'hours'
+        format('%.2f', row[:hours].to_f)
+      when 'comments'
+        row[:time_entry]&.comments.presence || '-'
+      else
+        custom_report_field_value(row, key).presence || '-'
+      end
+    end
+
+    def report_column_csv_value(row, key)
+      case key.to_s
+      when 'date' then row[:date] ? format_date(row[:date]) : ''
+      when 'project' then row[:project]&.name.to_s
+      when 'issue'
+        issue = row[:issue]
+        issue ? "##{issue.id} #{issue.subject}" : ''
+      when 'version' then row[:version]&.name.to_s
+      when 'bonus' then row[:bonus_label].to_s
+      when 'hours' then row[:hours].to_f
+      when 'comments' then row[:time_entry]&.comments.to_s
+      else custom_report_field_value(row, key).to_s
+      end
+    end
+
+    def report_column_pdf_width(key)
+      case key.to_s
+      when 'date' then 20
+      when 'project' then 34
+      when 'issue' then 58
+      when 'version' then 30
+      when 'bonus' then 45
+      when 'hours' then 16
+      when 'comments' then 74
+      else 42
+      end
+    end
+
+    def report_column_pdf_max_length(key)
+      case key.to_s
+      when 'date' then 14
+      when 'project' then 22
+      when 'issue' then 36
+      when 'version' then 18
+      when 'bonus' then 30
+      when 'hours' then 10
+      when 'comments' then 56
+      else 28
+      end
+    end
+
+    def report_column_align(key)
+      key.to_s == 'hours' ? 'R' : 'L'
+    end
+
+    def available_issue_report_custom_fields
+      @available_issue_report_custom_fields ||= IssueCustomField.order(:name, :id).to_a
+    end
+
+    def available_time_entry_report_custom_fields
+      @available_time_entry_report_custom_fields ||= if defined?(TimeEntryCustomField)
+                                                       TimeEntryCustomField.order(:name, :id).to_a
+                                                     else
+                                                       []
+                                                     end
+    end
+
+    def issue_report_custom_fields_by_id
+      @issue_report_custom_fields_by_id ||= available_issue_report_custom_fields.index_by(&:id)
+    end
+
+    def time_entry_report_custom_fields_by_id
+      @time_entry_report_custom_fields_by_id ||= available_time_entry_report_custom_fields.index_by(&:id)
+    end
+
+    def custom_report_field_key(scope, custom_field_id)
+      "#{scope}_cf_#{custom_field_id}"
+    end
+
+    def parse_custom_report_field_key(key)
+      match = key.to_s.match(/\A(issue|time_entry)_cf_(\d+)\z/)
+      return nil unless match
+
+      { scope: match[1], id: match[2].to_i }
+    end
+
+    def find_custom_report_field(scope, custom_field_id)
+      if scope == 'issue'
+        issue_report_custom_fields_by_id[custom_field_id]
+      else
+        time_entry_report_custom_fields_by_id[custom_field_id]
+      end
+    end
+
+    def custom_report_field_value(row, key)
+      custom_field_info = parse_custom_report_field_key(key)
+      return '' unless custom_field_info
+
+      source = custom_field_info[:scope] == 'issue' ? row[:issue] : row[:time_entry]
+      return '' unless source
+
+      custom_field = find_custom_report_field(custom_field_info[:scope], custom_field_info[:id])
+      value = source.custom_field_value(custom_field_info[:id])
+      value = value.value if value.respond_to?(:value)
+      if custom_field&.field_format == 'bool'
+        return '' if value.nil? || value.to_s.strip.empty?
+
+        return custom_field_truthy_value?(value) ? l(:general_text_Yes) : l(:general_text_No)
+      end
+
+      value = value.join(', ') if value.is_a?(Array)
+      value.to_s
+    end
+
+    def custom_field_truthy_value?(value)
+      return value if value == true || value == false
+
+      %w[1 true t yes y on].include?(value.to_s.strip.downcase)
     end
 
     def truncate_for_pdf(value, max_length)

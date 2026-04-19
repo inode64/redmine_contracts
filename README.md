@@ -23,6 +23,7 @@ This plugin adds hour-bundle contracts to Redmine projects.
 - Optional multi-select subprojects per contract to restrict where the contract applies.
 - Courtesy hours view for non-billed entries (boolean field missing/false) from contract start date.
 - Hours report by issue/project/version from contract start date with grouping by week or month.
+- Contract-level selection of visible report fields (base fields + issue/time-entry custom fields).
 - Frontend translations in English and Spanish.
 
 ## Data model

@@ -3,6 +3,9 @@
 module RedmineContracts
   class Contract < ApplicationRecord
     self.table_name = 'redmine_contracts'
+    AVAILABLE_REPORT_FIELD_KEYS = %w[date project issue version bonus hours].freeze
+    REPORT_CUSTOM_FIELD_KEY_PATTERN = /\A(?:issue|time_entry)_cf_\d+\z/.freeze
+    DEFAULT_REPORT_FIELD_KEYS = AVAILABLE_REPORT_FIELD_KEYS.dup.freeze
 
     belongs_to :project
     belongs_to :imputation_custom_field,
@@ -28,6 +31,7 @@ module RedmineContracts
     validate :validate_imputation_custom_field
     validate :validate_imputation_versions
     validate :validate_applied_subprojects
+    validate :validate_report_visible_fields
 
     scope :for_project, lambda { |project|
       project_id = project.is_a?(Project) ? project.id : project
@@ -60,6 +64,23 @@ module RedmineContracts
     def applied_subproject_ids=(value)
       normalized = normalize_project_ids(value)
       write_optional_attribute(:applied_subproject_ids, normalized.join(','))
+    end
+
+    def report_visible_field_keys
+      normalize_report_field_keys(read_optional_attribute(:report_visible_field_keys))
+    end
+
+    def report_visible_field_keys=(value)
+      normalized = normalize_report_field_keys(value)
+      write_optional_attribute(:report_visible_field_keys, normalized.join(','))
+    end
+
+    def selected_report_visible_field_keys
+      selected_keys = report_visible_field_keys
+      return DEFAULT_REPORT_FIELD_KEYS if selected_keys.empty?
+
+      normalized_keys = selected_keys.select { |key| report_field_key_valid?(key) }
+      normalized_keys.empty? ? DEFAULT_REPORT_FIELD_KEYS : normalized_keys
     end
 
     def self.project_lineage_ids(project)
@@ -537,6 +558,13 @@ module RedmineContracts
       errors.add(:applied_subproject_ids, :invalid) if invalid_scope.any?
     end
 
+    def validate_report_visible_fields
+      return if report_visible_field_keys.empty?
+
+      invalid_keys = report_visible_field_keys.reject { |key| report_field_key_valid?(key) }
+      errors.add(:report_visible_field_keys, :invalid) if invalid_keys.any?
+    end
+
     def issue_version_allowed?(issue)
       version_ids = selected_version_ids
       return true if version_ids.empty?
@@ -575,6 +603,20 @@ module RedmineContracts
       normalize_version_ids(value)
     end
 
+    def normalize_report_field_keys(value)
+      Array(value)
+        .flat_map { |item| item.to_s.split(',') }
+        .map(&:strip)
+        .reject(&:blank?)
+        .uniq
+        .select { |key| report_field_key_valid?(key) }
+    end
+
+    def report_field_key_valid?(key)
+      normalized = key.to_s
+      AVAILABLE_REPORT_FIELD_KEYS.include?(normalized) || normalized.match?(REPORT_CUSTOM_FIELD_KEY_PATTERN)
+    end
+
     def courtesy_candidate_entries
       TimeEntry.where(project_id: applicable_project_ids)
                .where('spent_on >= ?', started_on)
@@ -589,7 +631,7 @@ module RedmineContracts
       TimeEntry.where(project_id: applicable_project_ids)
                .where('spent_on >= ?', started_on)
                .where.not(issue_id: nil)
-               .includes(:project, issue: :fixed_version)
+               .includes(:project, :custom_values, issue: %i[fixed_version custom_values])
                .order(spent_on: :asc, id: :asc)
     end
 

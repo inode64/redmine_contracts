@@ -39,4 +39,13 @@
                    multiple: true,
                    size: 8 %>
   </p>
+  <p>
+    <label><%= l(:field_report_visible_field_keys) %></label>
+    <% report_fields_param_key = "#{f.object_name}[report_visible_field_keys][]" %>
+    <%= hidden_field_tag report_fields_param_key, '' %>
+    <%= select_tag report_fields_param_key,
+                   options_for_select(@available_report_visible_field_options || [], @contract.selected_report_visible_field_keys),
+                   multiple: true,
+                   size: 6 %>
+  </p>
 </div>

@@ -26,6 +26,8 @@
                        ],
                        @time_group_by
                      ) %>
+    </p>
+    <p>
       <label><%= l(:label_redmine_contract_group_by_secondary) %></label>
       <%= select_tag :detail_group_by,
                      options_for_select(
@@ -36,6 +38,8 @@
                        ],
                        @detail_group_by
                      ) %>
+    </p>
+    <p>
       <label><%= l(:label_redmine_contract_bonus_filter) %></label>
       <%= select_tag :bonus_id,
                      options_for_select(
@@ -45,6 +49,8 @@
                        end,
                        @selected_report_bonus_id
                      ) %>
+    </p>
+    <p>
       <%= hidden_field_tag :include_comments, '0' %>
       <label class="inline">
         <%= check_box_tag :include_comments, '1', @include_comments %>
@@ -58,18 +64,12 @@
 <% if @report_rows.empty? %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
-  <% column_count = @include_comments ? 7 : 6 %>
+  <% column_count = @report_column_keys.length %>
   <table class="list">
     <thead>
       <tr>
-        <th><%= l(:field_date) %></th>
-        <th><%= l(:field_project) %></th>
-        <th><%= l(:field_issue) %></th>
-        <th><%= l(:field_fixed_version) %></th>
-        <th><%= l(:label_redmine_contract_bonus_name) %></th>
-        <th><%= l(:field_hours) %></th>
-        <% if @include_comments %>
-          <th><%= l(:field_comments) %></th>
+        <% @report_column_keys.each do |column_key| %>
+          <th><%= report_column_label(column_key) %></th>
         <% end %>
       </tr>
     </thead>
@@ -93,23 +93,15 @@
             </tr>
           <% end %>
           <% subgroup[:rows].each do |row| %>
-            <% issue = row[:issue] %>
             <tr>
-              <td><%= format_date(row[:date]) %></td>
-              <td><%= row[:project]&.name || '-' %></td>
-              <td>
-                <% if issue %>
-                  <%= link_to "##{issue.id} #{issue.subject}",
-                              issue_path(issue) %>
-                <% else %>
-                  -
-                <% end %>
-              </td>
-              <td><%= row[:version]&.name || '-' %></td>
-              <td><%= row[:bonus_label].presence || '-' %></td>
-              <td><%= format_contract_hours(row[:hours]) %></td>
-              <% if @include_comments %>
-                <td><%= row[:time_entry]&.comments.presence || '-' %></td>
+              <% @report_column_keys.each do |column_key| %>
+                <td>
+                  <% if column_key.to_s == 'issue' && row[:issue] %>
+                    <%= link_to report_column_display_value(row, column_key), issue_path(row[:issue]) %>
+                  <% else %>
+                    <%= report_column_display_value(row, column_key) %>
+                  <% end %>
+                </td>
               <% end %>
             </tr>
             <% end %>
