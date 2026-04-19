@@ -45,47 +45,20 @@ module RedmineContracts
     scope :for_projects, ->(project_ids) { where(project_id: Array(project_ids)) }
     scope :active, -> { where(status: 'active') }
 
-    def imputation_custom_field_id
-      read_optional_attribute(:imputation_custom_field_id)
-    end
-
-    def imputation_custom_field_id=(value)
-      write_optional_attribute(:imputation_custom_field_id, value.presence)
-    end
-
-    def imputation_version_ids
-      read_optional_attribute(:imputation_version_ids)
-    end
-
     def imputation_version_ids=(value)
-      normalized = normalize_version_ids(value)
-      write_optional_attribute(:imputation_version_ids, normalized.join(','))
-    end
-
-    def report_category_custom_field_id
-      read_optional_attribute(:report_category_custom_field_id)
-    end
-
-    def report_category_custom_field_id=(value)
-      write_optional_attribute(:report_category_custom_field_id, value.presence)
-    end
-
-    def applied_subproject_ids
-      read_optional_attribute(:applied_subproject_ids)
+      self[:imputation_version_ids] = normalize_version_ids(value).join(',')
     end
 
     def applied_subproject_ids=(value)
-      normalized = normalize_project_ids(value)
-      write_optional_attribute(:applied_subproject_ids, normalized.join(','))
+      self[:applied_subproject_ids] = normalize_project_ids(value).join(',')
     end
 
     def report_visible_field_keys
-      normalize_report_field_keys(read_optional_attribute(:report_visible_field_keys))
+      normalize_report_field_keys(self[:report_visible_field_keys])
     end
 
     def report_visible_field_keys=(value)
-      normalized = normalize_report_field_keys(value)
-      write_optional_attribute(:report_visible_field_keys, normalized.join(','))
+      self[:report_visible_field_keys] = normalize_report_field_keys(value).join(',')
     end
 
     def selected_report_visible_field_keys
@@ -650,22 +623,6 @@ module RedmineContracts
       return false unless candidate_project && project
 
       project.is_or_is_ancestor_of?(candidate_project)
-    end
-
-    def read_optional_attribute(name)
-      if has_attribute?(name)
-        self[name]
-      else
-        instance_variable_get("@#{name}")
-      end
-    end
-
-    def write_optional_attribute(name, value)
-      if has_attribute?(name)
-        self[name] = value
-      else
-        instance_variable_set("@#{name}", value)
-      end
     end
 
     def truthy_custom_value?(value)
