@@ -16,16 +16,23 @@
 
   <%= form_tag({ controller: 'redmine_contracts/contracts', action: 'report', project_id: @project, id: @contract }, method: :get) do %>
     <p>
-      <label><%= l(:label_redmine_contract_group_by) %></label>
-      <%= select_tag :group_by,
+      <label><%= l(:label_redmine_contract_group_by_time) %></label>
+      <%= select_tag :time_group_by,
                      options_for_select(
                        [
-                         [l(:label_redmine_contract_group_none), 'none'],
                          [l(:label_redmine_contract_group_week), 'week'],
-                         [l(:label_redmine_contract_group_month), 'month'],
-                         [l(:label_redmine_contract_group_bonus), 'bonus']
+                         [l(:label_redmine_contract_group_month), 'month']
                        ],
-                       @group_by
+                       @time_group_by
+                     ) %>
+      <label><%= l(:label_redmine_contract_group_by_secondary) %></label>
+      <%= select_tag :detail_group_by,
+                     options_for_select(
+                       [
+                         [l(:label_redmine_contract_group_bonus), 'bonus'],
+                         [l(:label_redmine_contract_group_project), 'project']
+                       ],
+                       @detail_group_by
                      ) %>
       <label><%= l(:label_redmine_contract_bonus_filter) %></label>
       <%= select_tag :bonus_id,
@@ -66,7 +73,7 @@
     </thead>
     <tbody>
       <% @grouped_report_rows.each do |group| %>
-        <% if @group_by != 'none' %>
+        <% if group[:show_label] %>
           <tr class="group open">
             <td colspan="<%= column_count %>">
               <strong><%= group[:label] %></strong>
@@ -74,26 +81,36 @@
             </td>
           </tr>
         <% end %>
-        <% group[:rows].each do |row| %>
-          <% issue = row[:issue] %>
-          <tr>
-            <td><%= format_date(row[:date]) %></td>
-            <td><%= row[:project]&.name || '-' %></td>
-            <td>
-              <% if issue %>
-                <%= link_to "##{issue.id} #{issue.subject}",
-                            issue_path(issue) %>
-              <% else %>
-                -
+        <% group[:subgroups].each do |subgroup| %>
+          <% if subgroup[:show_label] %>
+            <tr class="group open">
+              <td colspan="<%= column_count %>">
+                <strong><%= subgroup[:label] %></strong>
+                (<%= l(:label_redmine_contract_total_hours) %>: <%= format_contract_hours(subgroup[:total_hours]) %>)
+              </td>
+            </tr>
+          <% end %>
+          <% subgroup[:rows].each do |row| %>
+            <% issue = row[:issue] %>
+            <tr>
+              <td><%= format_date(row[:date]) %></td>
+              <td><%= row[:project]&.name || '-' %></td>
+              <td>
+                <% if issue %>
+                  <%= link_to "##{issue.id} #{issue.subject}",
+                              issue_path(issue) %>
+                <% else %>
+                  -
+                <% end %>
+              </td>
+              <td><%= row[:version]&.name || '-' %></td>
+              <td><%= row[:bonus_label].presence || '-' %></td>
+              <td><%= format_contract_hours(row[:hours]) %></td>
+              <% if @include_comments %>
+                <td><%= row[:time_entry]&.comments.presence || '-' %></td>
               <% end %>
-            </td>
-            <td><%= row[:version]&.name || '-' %></td>
-            <td><%= row[:bonus_label].presence || '-' %></td>
-            <td><%= format_contract_hours(row[:hours]) %></td>
-            <% if @include_comments %>
-              <td><%= row[:time_entry]&.comments.presence || '-' %></td>
+            </tr>
             <% end %>
-          </tr>
         <% end %>
       <% end %>
     </tbody>

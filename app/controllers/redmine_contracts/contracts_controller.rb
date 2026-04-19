@@ -30,27 +30,26 @@ module RedmineContracts
     end
 
     def report
-      @group_by = params[:group_by].to_s
-      @group_by = 'none' unless %w[none week month bonus].include?(@group_by)
+      @time_group_by, @detail_group_by = selected_report_grouping
       @include_comments = ActiveModel::Type::Boolean.new.cast(params[:include_comments])
       @available_report_bonuses = @contract.bonuses.order(awarded_on: :asc, id: :asc).to_a
       @selected_report_bonus_id = selected_report_bonus_id(@available_report_bonuses)
 
       @report_rows = @contract.report_rows(bonus_id: @selected_report_bonus_id)
-      @grouped_report_rows = grouped_report_rows(@report_rows, @group_by)
+      @grouped_report_rows = grouped_report_rows(@report_rows, @time_group_by, @detail_group_by)
 
       respond_to do |format|
         format.html
         format.csv do
           send_data(
-            contract_report_to_csv(@grouped_report_rows, @group_by, @include_comments),
+            contract_report_to_csv(@grouped_report_rows, @include_comments),
             type: 'text/csv; header=present',
             filename: "#{contract_report_export_filename}.csv"
           )
         end
         format.pdf do
           send_data(
-            contract_report_to_pdf(@grouped_report_rows, @group_by, @include_comments),
+            contract_report_to_pdf(@grouped_report_rows, @include_comments),
             type: 'application/pdf',
             filename: "#{contract_report_export_filename}.pdf"
           )
@@ -165,36 +164,59 @@ module RedmineContracts
                                end
     end
 
-    def grouped_report_rows(rows, group_by)
+    def grouped_report_rows(rows, time_group_by, detail_group_by)
       return [] if rows.empty?
-      return [{ label: l(:label_redmine_contract_group_none), rows: rows, total_hours: rows.sum { |row| row[:hours].to_f } }] if group_by == 'none'
-      if group_by == 'bonus'
-        grouped = rows.group_by { |row| row[:bonus_label].presence || '-' }
-        return grouped.sort_by { |key, _| key.to_s.downcase }.map do |bonus_name, grouped_rows|
-          {
-            label: "#{l(:label_redmine_contract_group_bonus)}: #{bonus_name}",
-            rows: grouped_rows,
-            total_hours: grouped_rows.sum { |row| row[:hours].to_f }
-          }
-        end
-      end
+      grouped_by_time = rows.group_by { |row| time_group_key(row, time_group_by) }
+                            .sort_by { |key, _| key }
 
-      grouped = rows.group_by do |row|
-        date = row[:date]
-        if group_by == 'week'
-          [date.cwyear, date.cweek]
-        else
-          [date.year, date.month]
-        end
+      grouped_by_time.map do |time_key, grouped_rows|
+        {
+          label: time_group_label(time_group_by, time_key),
+          show_label: true,
+          total_hours: grouped_rows.sum { |row| row[:hours].to_f },
+          subgroups: grouped_report_subgroups(grouped_rows, detail_group_by)
+        }
       end
+    end
 
-      grouped.sort_by { |key, _| key }.map do |key, grouped_rows|
-        label = if group_by == 'week'
-                  week_label(key)
-                else
-                  month_label(key)
-                end
-        { label: label, rows: grouped_rows, total_hours: grouped_rows.sum { |row| row[:hours].to_f } }
+    def grouped_report_subgroups(rows, detail_group_by)
+      grouped = rows.group_by { |row| detail_group_key(row, detail_group_by) }
+      grouped.sort_by { |key, _| key.to_s.downcase }.map do |key, grouped_rows|
+        {
+          label: detail_group_label(detail_group_by, key),
+          show_label: true,
+          rows: grouped_rows,
+          total_hours: grouped_rows.sum { |row| row[:hours].to_f }
+        }
+      end
+    end
+
+    def time_group_key(row, time_group_by)
+      date = row[:date] || Date.current
+      return [date.year, date.month] if time_group_by == 'month'
+
+      [date.cwyear, date.cweek]
+    end
+
+    def detail_group_key(row, detail_group_by)
+      return row[:project]&.name.to_s.presence || '-' if detail_group_by == 'project'
+
+      row[:bonus_label].presence || '-'
+    end
+
+    def time_group_label(time_group_by, key)
+      if time_group_by == 'week'
+        week_label(key)
+      else
+        month_label(key)
+      end
+    end
+
+    def detail_group_label(detail_group_by, key)
+      if detail_group_by == 'project'
+        "#{l(:label_redmine_contract_group_project)}: #{key}"
+      else
+        "#{l(:label_redmine_contract_group_bonus)}: #{key}"
       end
     end
 
@@ -216,7 +238,7 @@ module RedmineContracts
       "#{slug}-hours-report-#{Date.current.strftime('%Y%m%d')}"
     end
 
-    def contract_report_to_csv(grouped_rows, group_by, include_comments)
+    def contract_report_to_csv(grouped_rows, include_comments)
       Redmine::Export::CSV.generate(
         encoding: params[:encoding],
         field_separator: params[:field_separator]
@@ -233,24 +255,32 @@ module RedmineContracts
         csv << headers
 
         grouped_rows.each do |group|
-          if group_by != 'none'
+          if group[:show_label]
             group_row = [group[:label], '', '', '', '', group[:total_hours].to_f]
             group_row << '' if include_comments
             csv << group_row
           end
 
-          group[:rows].each do |row|
-            issue = row[:issue]
-            csv_row = [
-              row[:date] ? format_date(row[:date]) : '',
-              row[:project]&.name.to_s,
-              issue ? "##{issue.id} #{issue.subject}" : '',
-              row[:version]&.name.to_s,
-              row[:bonus_label].to_s,
-              row[:hours].to_f
-            ]
-            csv_row << row[:time_entry]&.comments.to_s if include_comments
-            csv << csv_row
+          group[:subgroups].each do |subgroup|
+            if subgroup[:show_label]
+              subgroup_row = ["  #{subgroup[:label]}", '', '', '', '', subgroup[:total_hours].to_f]
+              subgroup_row << '' if include_comments
+              csv << subgroup_row
+            end
+
+            subgroup[:rows].each do |row|
+              issue = row[:issue]
+              csv_row = [
+                row[:date] ? format_date(row[:date]) : '',
+                row[:project]&.name.to_s,
+                issue ? "##{issue.id} #{issue.subject}" : '',
+                row[:version]&.name.to_s,
+                row[:bonus_label].to_s,
+                row[:hours].to_f
+              ]
+              csv_row << row[:time_entry]&.comments.to_s if include_comments
+              csv << csv_row
+            end
           end
         end
       end
@@ -275,7 +305,31 @@ module RedmineContracts
       available_ids.include?(bonus_id) ? bonus_id : nil
     end
 
-    def contract_report_to_pdf(grouped_rows, group_by, include_comments)
+    def selected_report_grouping
+      time_group_by = params[:time_group_by].to_s
+      detail_group_by = params[:detail_group_by].to_s
+      legacy_group_by = params[:group_by].to_s
+
+      if time_group_by.blank? && detail_group_by.blank?
+        case legacy_group_by
+        when 'week', 'month'
+          time_group_by = legacy_group_by
+          detail_group_by = 'bonus'
+        when 'bonus'
+          time_group_by = 'week'
+          detail_group_by = 'bonus'
+        else
+          time_group_by = 'week'
+          detail_group_by = 'bonus'
+        end
+      end
+
+      time_group_by = 'week' unless %w[week month].include?(time_group_by)
+      detail_group_by = 'bonus' unless %w[bonus project].include?(detail_group_by)
+      [time_group_by, detail_group_by]
+    end
+
+    def contract_report_to_pdf(grouped_rows, include_comments)
       pdf = Redmine::Export::PDF::ITCPDF.new(current_language, 'L')
       title = "#{@project} - #{l(:label_redmine_contract_hours_report)}: #{@contract.name}"
       pdf.set_title(title)
@@ -316,7 +370,7 @@ module RedmineContracts
       draw_table_header.call
 
       grouped_rows.each do |group|
-        if group_by != 'none'
+        if group[:show_label]
           if pdf.get_y + row_height > page_height - bottom_margin
             pdf.add_page('L')
             draw_table_header.call
@@ -327,34 +381,47 @@ module RedmineContracts
           pdf.RDMCell(table_width, row_height, truncate_for_pdf(group_label, 160), 1, 1, 'L')
         end
 
-        group[:rows].each do |row|
-          if pdf.get_y + row_height > page_height - bottom_margin
-            pdf.add_page('L')
-            draw_table_header.call
+        group[:subgroups].each do |subgroup|
+          if subgroup[:show_label]
+            if pdf.get_y + row_height > page_height - bottom_margin
+              pdf.add_page('L')
+              draw_table_header.call
+            end
+
+            pdf.SetFontStyle('B', 8)
+            subgroup_label = "#{subgroup[:label]} (#{l(:label_redmine_contract_total_hours)}: #{format('%.2f', subgroup[:total_hours].to_f)})"
+            pdf.RDMCell(table_width, row_height, truncate_for_pdf(subgroup_label, 160), 1, 1, 'L')
           end
 
-          issue = row[:issue]
-          values = [
-            row[:date] ? format_date(row[:date]) : '-',
-            row[:project]&.name || '-',
-            issue ? "##{issue.id} #{issue.subject}" : '-',
-            row[:version]&.name || '-',
-            row[:bonus_label].presence || '-',
-            format('%.2f', row[:hours].to_f)
-          ]
-          values << (row[:time_entry]&.comments.presence || '-') if include_comments
+          subgroup[:rows].each do |row|
+            if pdf.get_y + row_height > page_height - bottom_margin
+              pdf.add_page('L')
+              draw_table_header.call
+            end
 
-          pdf.SetFontStyle('', 8)
-          values.each_with_index do |value, index|
-            align = index == hours_column_index ? 'R' : 'L'
-            pdf.RDMCell(
-              widths[index],
-              row_height,
-              truncate_for_pdf(value.to_s, max_lengths[index]),
-              1,
-              index == values.length - 1 ? 1 : 0,
-              align
-            )
+            issue = row[:issue]
+            values = [
+              row[:date] ? format_date(row[:date]) : '-',
+              row[:project]&.name || '-',
+              issue ? "##{issue.id} #{issue.subject}" : '-',
+              row[:version]&.name || '-',
+              row[:bonus_label].presence || '-',
+              format('%.2f', row[:hours].to_f)
+            ]
+            values << (row[:time_entry]&.comments.presence || '-') if include_comments
+
+            pdf.SetFontStyle('', 8)
+            values.each_with_index do |value, index|
+              align = index == hours_column_index ? 'R' : 'L'
+              pdf.RDMCell(
+                widths[index],
+                row_height,
+                truncate_for_pdf(value.to_s, max_lengths[index]),
+                1,
+                index == values.length - 1 ? 1 : 0,
+                align
+              )
+            end
           end
         end
       end
