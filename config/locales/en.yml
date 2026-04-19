@@ -72,3 +72,5 @@ en:
   label_redmine_contract_status_active: "Active"
   label_redmine_contract_status_closed: "Closed"
   project_module_redmine_contracts: "Contracts"
+  permission_view_redmine_contracts: "View contracts"
+  permission_manage_redmine_contracts: "Manage contracts"
