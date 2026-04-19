@@ -251,12 +251,14 @@ module RedmineContracts
       end
 
       transaction do
+        now = Time.current
         ordered_bonuses.each do |bonus|
           bonus.update_columns(
             hours_spent_cache: result[:spent_by_bonus][bonus.id].round(2),
-            updated_at: Time.current
+            updated_at: now
           )
         end
+        update_columns(updated_at: now) if persisted?
       end
 
       {
