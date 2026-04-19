@@ -8,7 +8,7 @@ module RedmineContracts
     before_action :authorize
 
     def create
-      previous_bonus = @contract.bonuses.order(awarded_on: :asc, id: :asc).last
+      previous_bonus = @contract.bonuses.last
       continuation_enabled = continue_previous_bonus?
 
       if continuation_enabled && previous_bonus.blank?

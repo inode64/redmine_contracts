@@ -35,7 +35,7 @@ module RedmineContracts
     def report
       @time_group_by, @detail_group_by = selected_report_grouping
       @include_comments = ActiveModel::Type::Boolean.new.cast(params[:include_comments])
-      @available_report_bonuses = @contract.bonuses.order(awarded_on: :asc, id: :asc).to_a
+      @available_report_bonuses = @contract.bonuses.to_a
       @selected_report_bonus_id = selected_report_bonus_id(@available_report_bonuses)
 
       @report_rows = @contract.report_rows(bonus_id: @selected_report_bonus_id)

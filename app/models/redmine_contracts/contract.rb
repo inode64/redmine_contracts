@@ -29,6 +29,7 @@ module RedmineContracts
                optional: true
 
     has_many :bonuses,
+             -> { order(:awarded_on, :id) },
              class_name: 'RedmineContracts::ContractBonus',
              foreign_key: :contract_id,
              inverse_of: :contract,
@@ -243,7 +244,7 @@ module RedmineContracts
     end
 
     def recalculate_bonus_spent_hours!
-      ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc).to_a
+      ordered_bonuses = bonuses.to_a
       eligible_entries = time_entries_for_recalculation
                          .order(spent_on: :asc, id: :asc)
                          .select { |entry| imputable_time_entry?(entry) && entry.hours.to_f.positive? }
@@ -299,12 +300,11 @@ module RedmineContracts
     end
 
     def bonus_rows_cached?
-      ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc)
-      ordered_bonuses.where.not(hours_spent_cache: nil).any?
+      bonuses.where.not(hours_spent_cache: nil).any?
     end
 
     def bonus_rows_from_cache
-      bonuses.order(awarded_on: :asc, id: :asc).map do |bonus|
+      bonuses.map do |bonus|
         total = bonus.hours_total.to_f
         consumed = bonus.hours_spent_cache.to_f
         remaining = total - consumed
@@ -320,7 +320,7 @@ module RedmineContracts
     def bonus_rows_fifo
       remaining_to_allocate = spent_hours_from_entries
 
-      bonuses.order(awarded_on: :asc, id: :asc).map do |bonus|
+      bonuses.map do |bonus|
         total = bonus.hours_total.to_f
         consumed = [total, [remaining_to_allocate, 0.0].max].min
         remaining = total - consumed
@@ -342,7 +342,7 @@ module RedmineContracts
 
     def report_bonus_allocations_by_entry_id(entries)
       epsilon = 0.00001
-      ordered_bonuses = bonuses.order(awarded_on: :asc, id: :asc).to_a
+      ordered_bonuses = bonuses.to_a
       bonuses_by_id = ordered_bonuses.index_by(&:id)
       eligible_entries = entries.select { |entry| imputable_time_entry?(entry) && entry.hours.to_f.positive? }
 
