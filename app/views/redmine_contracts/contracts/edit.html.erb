@@ -5,4 +5,7 @@
                       method: :patch do |f| %>
   <%= render partial: 'form', locals: { f: f } %>
   <%= submit_tag l(:button_save) %>
+  <%= link_to l(:button_cancel),
+              { controller: 'redmine_contracts/contracts', action: 'show', project_id: @project, id: @contract },
+              class: 'icon icon-cancel' %>
 <% end %>
