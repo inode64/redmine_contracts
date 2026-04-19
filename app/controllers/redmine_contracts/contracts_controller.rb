@@ -368,18 +368,18 @@ module RedmineContracts
         case legacy_group_by
         when 'week', 'month'
           time_group_by = legacy_group_by
-          detail_group_by = 'bonus'
+          detail_group_by = 'none'
         when 'bonus'
           time_group_by = 'none'
           detail_group_by = 'bonus'
         else
-          time_group_by = 'week'
-          detail_group_by = 'bonus'
+          time_group_by = 'none'
+          detail_group_by = 'none'
         end
       end
 
-      time_group_by = 'week' unless %w[none week month].include?(time_group_by)
-      detail_group_by = 'bonus' unless %w[none bonus project category].include?(detail_group_by)
+      time_group_by = 'none' unless %w[none week month].include?(time_group_by)
+      detail_group_by = 'none' unless %w[none bonus project category].include?(detail_group_by)
       [time_group_by, detail_group_by]
     end
 
