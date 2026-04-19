@@ -4,6 +4,7 @@ es:
       'redmine_contracts/contract':
         imputation_custom_field_id: "Campo booleano para imputación"
         report_category_custom_field_id: "Campo de categoría del informe"
+        category_editable_in_report: "Permitir editar la categoría desde el informe"
       'redmine_contracts/contract_bonus':
         awarded_on: "Fecha del bono"
         invoice_reference: "Referencia de factura"
@@ -13,6 +14,7 @@ es:
   field_imputation_version_ids: "Versiones de tareas para imputación"
   field_applied_subproject_ids: "Subproyectos aplicables"
   field_report_category_custom_field_id: "Campo categoría para informe"
+  field_category_editable_in_report: "Permitir editar la categoría desde el informe"
   field_report_visible_field_keys: "Campos visibles en el informe"
   label_redmine_contracts: "Contratos"
   label_redmine_contract_name: "Contrato"
@@ -56,6 +58,7 @@ es:
   label_redmine_contract_custom_issue_field: "Campo tarea"
   label_redmine_contract_custom_time_entry_field: "Campo tiempo"
   label_redmine_contract_include_comments: "Mostrar comentario del tiempo dedicado"
+  label_redmine_contract_category_save: "Guardar"
   button_redmine_contract_recalculate: "Recalcular horas invertidas"
   text_redmine_contract_recalculate_confirm: "¿Recalcular horas invertidas según fechas de bonos?"
   notice_redmine_contract_recalculated: "Horas recalculadas. Asignadas: %{allocated}h"

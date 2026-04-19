@@ -65,12 +65,16 @@
 <% if @report_rows.empty? %>
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
-  <% column_count = @report_column_keys.length %>
+  <% show_category_editor = @contract.category_editable_in_report? && @contract.report_category_custom_field.present? %>
+  <% column_count = @report_column_keys.length + (show_category_editor ? 1 : 0) %>
   <table class="list">
     <thead>
       <tr>
         <% @report_column_keys.each do |column_key| %>
           <th><%= report_column_label(column_key) %></th>
+        <% end %>
+        <% if show_category_editor %>
+          <th><%= @contract.report_category_custom_field.name %></th>
         <% end %>
       </tr>
     </thead>
@@ -103,6 +107,9 @@
                     <%= report_column_display_value(row, column_key) %>
                   <% end %>
                 </td>
+              <% end %>
+              <% if show_category_editor %>
+                <td><%= render_category_editor(@contract, row[:issue]) %></td>
               <% end %>
             </tr>
             <% end %>

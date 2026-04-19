@@ -11,10 +11,12 @@ Redmine::Plugin.register :redmine_contracts do
   requires_redmine version_or_higher: '6.0.0'
 
   project_module :redmine_contracts do
-    permission :view_redmine_contracts, { 'redmine_contracts/contracts' => %i[index show report] }, read: true
+    permission :view_redmine_contracts,
+               { 'redmine_contracts/contracts' => %i[index show report update_category] },
+               read: true
     permission :manage_redmine_contracts,
                {
-                 'redmine_contracts/contracts' => %i[index show report new create edit update recalculate],
+                 'redmine_contracts/contracts' => %i[index show report new create edit update recalculate update_category],
                  'redmine_contracts/contract_bonuses' => %i[create edit update destroy]
                },
                require: :member

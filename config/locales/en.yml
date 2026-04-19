@@ -4,6 +4,7 @@ en:
       'redmine_contracts/contract':
         imputation_custom_field_id: "Imputation custom field"
         report_category_custom_field_id: "Report category field"
+        category_editable_in_report: "Allow editing category from report"
       'redmine_contracts/contract_bonus':
         awarded_on: "Bonus date"
         invoice_reference: "Invoice reference"
@@ -13,6 +14,7 @@ en:
   field_imputation_version_ids: "Issue versions for imputation"
   field_applied_subproject_ids: "Applicable subprojects"
   field_report_category_custom_field_id: "Report category field"
+  field_category_editable_in_report: "Allow editing category from report"
   field_report_visible_field_keys: "Visible report fields"
   label_redmine_contracts: "Contracts"
   label_redmine_contract_name: "Contract"
@@ -56,6 +58,7 @@ en:
   label_redmine_contract_custom_issue_field: "Issue field"
   label_redmine_contract_custom_time_entry_field: "Time entry field"
   label_redmine_contract_include_comments: "Show spent time comment"
+  label_redmine_contract_category_save: "Save"
   button_redmine_contract_recalculate: "Recalculate spent hours"
   text_redmine_contract_recalculate_confirm: "Recalculate spent hours by bonus dates?"
   notice_redmine_contract_recalculated: "Hours recalculated. Allocated: %{allocated}h"

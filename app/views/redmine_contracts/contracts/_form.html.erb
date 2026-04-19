@@ -27,6 +27,9 @@
                    (@issue_custom_fields || []).map { |cf| [cf.name, cf.id] } %>
   </p>
   <p>
+    <%= f.check_box :category_editable_in_report %>
+  </p>
+  <p>
     <label><%= l(:field_imputation_version_ids) %></label>
     <% version_param_key = "#{f.object_name}[imputation_version_ids][]" %>
     <%= hidden_field_tag version_param_key, '' %>

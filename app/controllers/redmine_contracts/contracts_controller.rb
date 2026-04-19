@@ -3,7 +3,7 @@
 module RedmineContracts
   class ContractsController < ApplicationController
     before_action :find_project
-    before_action :find_contract, only: %i[show report edit update recalculate]
+    before_action :find_contract, only: %i[show report edit update recalculate update_category]
     before_action :ensure_manageable_contract, only: %i[edit update recalculate]
     before_action :load_boolean_issue_custom_fields, only: %i[new create edit update]
     before_action :load_issue_custom_fields, only: %i[new create edit update]
@@ -114,6 +114,30 @@ module RedmineContracts
       redirect_to controller: 'redmine_contracts/contracts', action: 'show', project_id: @project, id: @contract
     end
 
+    def update_category
+      custom_field = @contract.report_category_custom_field
+      return render_404 unless custom_field && @contract.category_editable_in_report?
+
+      issue = Issue.find(params[:issue_id])
+      return render_403 unless User.current.allowed_to?(:edit_issues, issue.project)
+
+      new_value = params.dig(:issue, :custom_field_values, custom_field.id.to_s)
+
+      issue.init_journal(User.current)
+      issue.custom_field_values = { custom_field.id => new_value }
+
+      if issue.save
+        flash[:notice] = l(:notice_successful_update)
+      else
+        flash[:error] = issue.errors.full_messages.to_sentence
+      end
+
+      redirect_back(fallback_location: {
+        controller: 'redmine_contracts/contracts', action: 'report',
+        project_id: @project, id: @contract
+      })
+    end
+
     private
 
     def find_project
@@ -141,6 +165,7 @@ module RedmineContracts
         :notes,
         :imputation_custom_field_id,
         :report_category_custom_field_id,
+        :category_editable_in_report,
         imputation_version_ids: [],
         applied_subproject_ids: [],
         report_visible_field_keys: []
