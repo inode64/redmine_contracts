@@ -339,15 +339,15 @@ module RedmineContracts
     private
 
     def time_entries_for_recalculation
-      first_bonus_date = bonuses.minimum(:awarded_on)
-      return TimeEntry.none unless first_bonus_date
+      return TimeEntry.none unless started_on
+      return TimeEntry.none unless bonuses.exists?
 
       subtree_ids = applicable_project_ids
       TimeEntry.where(
         "contract_id = :contract_id OR (contract_id IS NULL AND project_id IN (:project_ids))",
         contract_id: id,
         project_ids: subtree_ids
-      ).where('spent_on >= ?', first_bonus_date)
+      ).where('spent_on >= ?', started_on)
     end
 
     def project_tree_ids
