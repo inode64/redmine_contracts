@@ -579,22 +579,9 @@ module RedmineContracts
       return '' unless source
 
       custom_field = find_custom_report_field(custom_field_info[:scope], custom_field_info[:id])
-      value = source.custom_field_value(custom_field_info[:id])
-      value = value.value if value.respond_to?(:value)
-      if custom_field&.field_format == 'bool'
-        return '' if value.nil? || value.to_s.strip.empty?
+      return '' unless custom_field
 
-        return custom_field_truthy_value?(value) ? l(:general_text_Yes) : l(:general_text_No)
-      end
-
-      value = value.join(', ') if value.is_a?(Array)
-      value.to_s
-    end
-
-    def custom_field_truthy_value?(value)
-      return value if value == true || value == false
-
-      %w[1 true t yes y on].include?(value.to_s.strip.downcase)
+      view_context.format_value(source.custom_field_value(custom_field.id), custom_field).to_s
     end
 
     def report_category_value_for_group(row)
@@ -604,17 +591,8 @@ module RedmineContracts
       issue = row[:issue]
       return '-' unless issue
 
-      value = issue.custom_field_value(custom_field.id)
-      value = value.value if value.respond_to?(:value)
-      if custom_field.field_format == 'bool'
-        return '-' if value.nil? || value.to_s.strip.empty?
-
-        return custom_field_truthy_value?(value) ? l(:general_text_Yes) : l(:general_text_No)
-      end
-
-      value = value.join(', ') if value.is_a?(Array)
-      value = value.to_s.strip
-      value.present? ? value : '-'
+      formatted = view_context.format_value(issue.custom_field_value(custom_field.id), custom_field).to_s.strip
+      formatted.presence || '-'
     end
 
     def truncate_for_pdf(value, max_length)
