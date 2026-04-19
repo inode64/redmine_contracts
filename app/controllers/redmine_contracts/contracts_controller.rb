@@ -170,11 +170,11 @@ module RedmineContracts
         [report_column_label(key), key]
       end
       issue_custom_options = available_issue_report_custom_fields.map do |custom_field|
-        key = custom_report_field_key('issue', custom_field.id)
+        key = RedmineContracts::Contract.custom_report_field_key('issue', custom_field.id)
         [report_column_label(key), key]
       end
       time_entry_custom_options = available_time_entry_report_custom_fields.map do |custom_field|
-        key = custom_report_field_key('time_entry', custom_field.id)
+        key = RedmineContracts::Contract.custom_report_field_key('time_entry', custom_field.id)
         [report_column_label(key), key]
       end
 
@@ -456,7 +456,7 @@ module RedmineContracts
       when 'hours' then l(:field_hours)
       when 'comments' then l(:field_comments)
       else
-        custom_field_info = parse_custom_report_field_key(key)
+        custom_field_info = RedmineContracts::Contract.parse_custom_report_field_key(key)
         return key.to_s.humanize unless custom_field_info
 
         custom_field = find_custom_report_field(custom_field_info[:scope], custom_field_info[:id])
@@ -552,17 +552,6 @@ module RedmineContracts
       @time_entry_report_custom_fields_by_id ||= available_time_entry_report_custom_fields.index_by(&:id)
     end
 
-    def custom_report_field_key(scope, custom_field_id)
-      "#{scope}_cf_#{custom_field_id}"
-    end
-
-    def parse_custom_report_field_key(key)
-      match = key.to_s.match(/\A(issue|time_entry)_cf_(\d+)\z/)
-      return nil unless match
-
-      { scope: match[1], id: match[2].to_i }
-    end
-
     def find_custom_report_field(scope, custom_field_id)
       if scope == 'issue'
         issue_report_custom_fields_by_id[custom_field_id]
@@ -572,7 +561,7 @@ module RedmineContracts
     end
 
     def custom_report_field_value(row, key)
-      custom_field_info = parse_custom_report_field_key(key)
+      custom_field_info = RedmineContracts::Contract.parse_custom_report_field_key(key)
       return '' unless custom_field_info
 
       source = custom_field_info[:scope] == 'issue' ? row[:issue] : row[:time_entry]

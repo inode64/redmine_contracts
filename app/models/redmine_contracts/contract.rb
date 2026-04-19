@@ -4,8 +4,19 @@ module RedmineContracts
   class Contract < ApplicationRecord
     self.table_name = 'redmine_contracts'
     AVAILABLE_REPORT_FIELD_KEYS = %w[date project issue version bonus hours].freeze
-    REPORT_CUSTOM_FIELD_KEY_PATTERN = /\A(?:issue|time_entry)_cf_\d+\z/.freeze
+    REPORT_CUSTOM_FIELD_KEY_PATTERN = /\A(?<scope>issue|time_entry)_cf_(?<id>\d+)\z/.freeze
     DEFAULT_REPORT_FIELD_KEYS = AVAILABLE_REPORT_FIELD_KEYS.dup.freeze
+
+    def self.custom_report_field_key(scope, custom_field_id)
+      "#{scope}_cf_#{custom_field_id}"
+    end
+
+    def self.parse_custom_report_field_key(key)
+      match = REPORT_CUSTOM_FIELD_KEY_PATTERN.match(key.to_s)
+      return nil unless match
+
+      { scope: match[:scope], id: match[:id].to_i }
+    end
 
     belongs_to :project
     belongs_to :imputation_custom_field,
