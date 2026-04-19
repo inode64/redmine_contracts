@@ -32,13 +32,9 @@ module RedmineContracts
 
     private
 
-    def recalculate_contract_on_create
-      contract&.recalculate_bonus_spent_hours!
-    end
+    def recalculate_contract_on_create = contract&.recalculate_bonus_spent_hours!
 
-    def recalculate_contract_on_destroy
-      contract_for_recalculation&.recalculate_bonus_spent_hours!
-    end
+    def recalculate_contract_on_destroy = contract_for_recalculation&.recalculate_bonus_spent_hours!
 
     def recalculate_contract_on_update
       return unless previous_changes.keys.intersect?(%w[hours_total awarded_on contract_id])
@@ -52,8 +48,6 @@ module RedmineContracts
       end
     end
 
-    def contract_for_recalculation
-      contract || RedmineContracts::Contract.find_by(id: contract_id)
-    end
+    def contract_for_recalculation = contract || RedmineContracts::Contract.find_by(id: contract_id)
   end
 end

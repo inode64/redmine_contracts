@@ -528,9 +528,7 @@ module RedmineContracts
       end
     end
 
-    def report_column_align(key)
-      key.to_s == 'hours' ? 'R' : 'L'
-    end
+    def report_column_align(key) = key.to_s == 'hours' ? 'R' : 'L'
 
     def available_issue_report_custom_fields
       @available_issue_report_custom_fields ||= IssueCustomField.order(:name, :id).to_a
@@ -584,8 +582,6 @@ module RedmineContracts
       formatted.presence || '-'
     end
 
-    def truncate_for_pdf(value, max_length)
-      value.to_s.truncate(max_length)
-    end
+    def truncate_for_pdf(value, max_length) = value.to_s.truncate(max_length)
   end
 end

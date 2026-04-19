@@ -2,9 +2,7 @@
 
 module RedmineContracts
   module ContractsHelper
-    def format_contract_hours(value)
-      format('%.2f', value.to_f)
-    end
+    def format_contract_hours(value) = format('%.2f', value.to_f)
 
     def contract_progress_percent(total_hours, spent_hours)
       total = total_hours.to_f

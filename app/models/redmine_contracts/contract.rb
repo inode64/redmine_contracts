@@ -111,17 +111,13 @@ module RedmineContracts
       nil
     end
 
-    def total_hours
-      bonuses.sum(:hours_total).to_f
-    end
+    def total_hours = bonuses.sum(:hours_total).to_f
 
     def spent_hours
       bonus_rows.sum { |row| row[:consumed_hours].to_f }
     end
 
-    def remaining_hours
-      total_hours - spent_hours
-    end
+    def remaining_hours = total_hours - spent_hours
 
     def bonus_rows
       return bonus_rows_from_cache if bonus_rows_cached?
@@ -142,9 +138,7 @@ module RedmineContracts
       truthy_custom_value?(issue.custom_field_value(imputation_custom_field_id))
     end
 
-    def selected_version_ids
-      normalize_version_ids(imputation_version_ids)
-    end
+    def selected_version_ids = normalize_version_ids(imputation_version_ids)
 
     def selected_versions
       ids = selected_version_ids
@@ -221,9 +215,7 @@ module RedmineContracts
       rows
     end
 
-    def selected_applied_subproject_ids
-      normalize_project_ids(applied_subproject_ids)
-    end
+    def selected_applied_subproject_ids = normalize_project_ids(applied_subproject_ids)
 
     def selected_applied_subprojects
       ids = selected_applied_subproject_ids

@@ -85,9 +85,7 @@ module RedmineContracts
       payload.permit(:awarded_on, :name, :invoice_reference, :hours_total)
     end
 
-    def continue_previous_bonus?
-      ActiveModel::Type::Boolean.new.cast(params[:continue_previous_bonus])
-    end
+    def continue_previous_bonus? = ActiveModel::Type::Boolean.new.cast(params[:continue_previous_bonus])
 
     def overflow_hours_for_bonus(bonus)
       return 0.0 unless bonus
