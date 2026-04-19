@@ -27,6 +27,11 @@ This plugin adds hour-bundle contracts to Redmine projects.
 - Contract-level selection of visible report fields (base fields + issue/time-entry custom fields).
 - Frontend translations in English and Spanish.
 
+## Requirements
+
+- Redmine 6.0 or higher
+- Ruby 3.3 or higher
+
 ## Data model
 
 - `redmine_contracts`
