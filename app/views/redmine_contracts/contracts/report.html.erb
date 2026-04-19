@@ -66,11 +66,13 @@
   <p class="nodata"><%= l(:label_no_data) %></p>
 <% else %>
   <% show_category_editor = @contract.category_editable_in_report? && @contract.report_category_custom_field.present? %>
-  <% column_count = @report_column_keys.length + (show_category_editor ? 1 : 0) %>
+  <% category_column_key = show_category_editor ? RedmineContracts::Contract.custom_report_field_key('issue', @contract.report_category_custom_field_id) : nil %>
+  <% visible_column_keys = show_category_editor ? @report_column_keys.reject { |k| k == category_column_key } : @report_column_keys %>
+  <% column_count = visible_column_keys.length + (show_category_editor ? 1 : 0) %>
   <table class="list">
     <thead>
       <tr>
-        <% @report_column_keys.each do |column_key| %>
+        <% visible_column_keys.each do |column_key| %>
           <th><%= report_column_label(column_key) %></th>
         <% end %>
         <% if show_category_editor %>
@@ -99,7 +101,7 @@
           <% end %>
           <% subgroup[:rows].each do |row| %>
             <tr>
-              <% @report_column_keys.each do |column_key| %>
+              <% visible_column_keys.each do |column_key| %>
                 <td>
                   <% if column_key.to_s == 'issue' && row[:issue] %>
                     <%= link_to report_column_display_value(row, column_key), issue_path(row[:issue]) %>

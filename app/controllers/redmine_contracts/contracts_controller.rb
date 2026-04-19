@@ -177,7 +177,7 @@ module RedmineContracts
     end
 
     def load_issue_custom_fields
-      @issue_custom_fields = IssueCustomField.order(:name, :id)
+      @issue_custom_fields = IssueCustomField.where(field_format: 'list').order(:name, :id)
     end
 
     def load_available_versions

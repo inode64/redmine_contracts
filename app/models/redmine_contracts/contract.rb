@@ -470,7 +470,9 @@ module RedmineContracts
       return if report_category_custom_field_id.blank?
 
       custom_field = IssueCustomField.find_by(id: report_category_custom_field_id)
-      errors.add(:report_category_custom_field_id, :invalid) unless custom_field
+      return if custom_field&.field_format == 'list'
+
+      errors.add(:report_category_custom_field_id, :invalid)
     end
 
     def validate_applied_subprojects
