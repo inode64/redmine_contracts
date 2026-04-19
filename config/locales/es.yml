@@ -3,6 +3,7 @@ es:
     attributes:
       'redmine_contracts/contract':
         imputation_custom_field_id: "Campo booleano para imputación"
+        report_category_custom_field_id: "Campo de categoría del informe"
       'redmine_contracts/contract_bonus':
         awarded_on: "Fecha del bono"
         invoice_reference: "Referencia de factura"
@@ -11,6 +12,7 @@ es:
   field_imputation_custom_field_id: "Campo booleano para imputación"
   field_imputation_version_ids: "Versiones de tareas para imputación"
   field_applied_subproject_ids: "Subproyectos aplicables"
+  field_report_category_custom_field_id: "Campo categoría para informe"
   field_report_visible_field_keys: "Campos visibles en el informe"
   label_redmine_contracts: "Contratos"
   label_redmine_contract_name: "Contrato"
@@ -49,6 +51,8 @@ es:
   label_redmine_contract_group_month: "Mes"
   label_redmine_contract_group_bonus: "Bono"
   label_redmine_contract_group_project: "Proyecto"
+  label_redmine_contract_group_category: "Categoría"
+  label_redmine_contract_no_category_field: "Sin campo de categoría"
   label_redmine_contract_custom_issue_field: "Campo tarea"
   label_redmine_contract_custom_time_entry_field: "Campo tiempo"
   label_redmine_contract_include_comments: "Mostrar comentario del tiempo dedicado"

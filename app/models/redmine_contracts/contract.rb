@@ -12,6 +12,10 @@ module RedmineContracts
                class_name: 'IssueCustomField',
                foreign_key: :imputation_custom_field_id,
                optional: true
+    belongs_to :report_category_custom_field,
+               class_name: 'IssueCustomField',
+               foreign_key: :report_category_custom_field_id,
+               optional: true
 
     has_many :bonuses,
              class_name: 'RedmineContracts::ContractBonus',
@@ -29,6 +33,7 @@ module RedmineContracts
     validates :started_on, presence: true
     validates :status, presence: true, inclusion: { in: %w[active closed] }
     validate :validate_imputation_custom_field
+    validate :validate_report_category_custom_field
     validate :validate_imputation_versions
     validate :validate_applied_subprojects
     validate :validate_report_visible_fields
@@ -55,6 +60,14 @@ module RedmineContracts
     def imputation_version_ids=(value)
       normalized = normalize_version_ids(value)
       write_optional_attribute(:imputation_version_ids, normalized.join(','))
+    end
+
+    def report_category_custom_field_id
+      read_optional_attribute(:report_category_custom_field_id)
+    end
+
+    def report_category_custom_field_id=(value)
+      write_optional_attribute(:report_category_custom_field_id, value.presence)
     end
 
     def applied_subproject_ids
@@ -541,6 +554,13 @@ module RedmineContracts
       return if (version_ids - existing_ids).empty?
 
       errors.add(:imputation_version_ids, :invalid)
+    end
+
+    def validate_report_category_custom_field
+      return if report_category_custom_field_id.blank?
+
+      custom_field = IssueCustomField.find_by(id: report_category_custom_field_id)
+      errors.add(:report_category_custom_field_id, :invalid) unless custom_field
     end
 
     def validate_applied_subprojects

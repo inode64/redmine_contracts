@@ -54,6 +54,10 @@
       <%= l(:label_redmine_contract_applies_all_subprojects) %>
     <% end %>
   </p>
+  <p>
+    <strong><%= l(:field_report_category_custom_field_id) %>:</strong>
+    <%= @contract.report_category_custom_field&.name || l(:label_redmine_contract_no_category_field) %>
+  </p>
   <p><strong><%= l(:label_redmine_contract_total_hours) %>:</strong> <%= format_contract_hours(@contract.total_hours) %></p>
   <p><strong><%= l(:label_redmine_contract_spent_hours) %>:</strong> <%= format_contract_hours(@contract.spent_hours) %></p>
   <p><strong><%= l(:label_redmine_contract_remaining_hours) %>:</strong> <%= format_contract_hours(@contract.remaining_hours) %></p>

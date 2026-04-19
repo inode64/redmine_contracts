@@ -22,6 +22,11 @@
                    (@boolean_issue_custom_fields || []).map { |cf| [cf.name, cf.id] } %>
   </p>
   <p>
+    <%= f.select :report_category_custom_field_id,
+                 [[l(:label_redmine_contract_no_category_field), '']] +
+                   (@issue_custom_fields || []).map { |cf| [cf.name, cf.id] } %>
+  </p>
+  <p>
     <label><%= l(:field_imputation_version_ids) %></label>
     <% version_param_key = "#{f.object_name}[imputation_version_ids][]" %>
     <%= hidden_field_tag version_param_key, '' %>

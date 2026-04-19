@@ -21,6 +21,7 @@ This plugin adds hour-bundle contracts to Redmine projects.
 - Optional boolean issue custom field per contract to decide if a time entry is imputable to bonuses.
 - Optional multi-select issue versions per contract to impute only matching issue versions.
 - Optional multi-select subprojects per contract to restrict where the contract applies.
+- Optional report category field (issue custom field) to group report rows by category.
 - Courtesy hours view for non-billed entries (boolean field missing/false) from contract start date.
 - Hours report by issue/project/version from contract start date with grouping by week or month.
 - Contract-level selection of visible report fields (base fields + issue/time-entry custom fields).

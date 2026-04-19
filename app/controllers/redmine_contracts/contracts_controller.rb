@@ -6,6 +6,7 @@ module RedmineContracts
     before_action :find_contract, only: %i[show report edit update recalculate]
     before_action :ensure_manageable_contract, only: %i[edit update recalculate]
     before_action :load_boolean_issue_custom_fields, only: %i[new create edit update]
+    before_action :load_issue_custom_fields, only: %i[new create edit update]
     before_action :load_available_versions, only: %i[new create edit update]
     before_action :load_available_subprojects, only: %i[new create edit update]
     before_action :load_report_visible_field_options, only: %i[new create edit update]
@@ -139,6 +140,7 @@ module RedmineContracts
         :status,
         :notes,
         :imputation_custom_field_id,
+        :report_category_custom_field_id,
         imputation_version_ids: [],
         applied_subproject_ids: [],
         report_visible_field_keys: []
@@ -147,6 +149,10 @@ module RedmineContracts
 
     def load_boolean_issue_custom_fields
       @boolean_issue_custom_fields = IssueCustomField.where(field_format: 'bool').order(:name)
+    end
+
+    def load_issue_custom_fields
+      @issue_custom_fields = IssueCustomField.order(:name, :id)
     end
 
     def load_available_versions
@@ -235,6 +241,7 @@ module RedmineContracts
 
     def detail_group_key(row, detail_group_by)
       return row[:project]&.name.to_s.presence || '-' if detail_group_by == 'project'
+      return report_category_value_for_group(row) if detail_group_by == 'category'
 
       row[:bonus_label].presence || '-'
     end
@@ -252,6 +259,8 @@ module RedmineContracts
     def detail_group_label(detail_group_by, key)
       if detail_group_by == 'project'
         "#{l(:label_redmine_contract_group_project)}: #{key}"
+      elsif detail_group_by == 'category'
+        "#{l(:label_redmine_contract_group_category)}: #{key}"
       else
         "#{l(:label_redmine_contract_group_bonus)}: #{key}"
       end
@@ -354,7 +363,7 @@ module RedmineContracts
       end
 
       time_group_by = 'week' unless %w[none week month].include?(time_group_by)
-      detail_group_by = 'bonus' unless %w[none bonus project].include?(detail_group_by)
+      detail_group_by = 'bonus' unless %w[none bonus project category].include?(detail_group_by)
       [time_group_by, detail_group_by]
     end
 
@@ -595,6 +604,26 @@ module RedmineContracts
       return value if value == true || value == false
 
       %w[1 true t yes y on].include?(value.to_s.strip.downcase)
+    end
+
+    def report_category_value_for_group(row)
+      custom_field = @contract.report_category_custom_field
+      return '-' unless custom_field
+
+      issue = row[:issue]
+      return '-' unless issue
+
+      value = issue.custom_field_value(custom_field.id)
+      value = value.value if value.respond_to?(:value)
+      if custom_field.field_format == 'bool'
+        return '-' if value.nil? || value.to_s.strip.empty?
+
+        return custom_field_truthy_value?(value) ? l(:general_text_Yes) : l(:general_text_No)
+      end
+
+      value = value.join(', ') if value.is_a?(Array)
+      value = value.to_s.strip
+      value.present? ? value : '-'
     end
 
     def truncate_for_pdf(value, max_length)
