@@ -25,13 +25,9 @@ module RedmineContracts
         return "#{default_prefix} 1"
       end
 
-      match = base_name.match(/\A(.*?)(\d+)\z/)
-      return "#{base_name} 2" unless match
+      return "#{base_name} 2" unless base_name.match?(/\d\z/)
 
-      prefix = match[1]
-      current_digits = match[2]
-      next_number = current_digits.to_i + 1
-      "#{prefix}#{next_number.to_s.rjust(current_digits.length, '0')}".strip
+      base_name.next
     end
 
     private

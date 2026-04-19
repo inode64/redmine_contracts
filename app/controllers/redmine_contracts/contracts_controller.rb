@@ -585,10 +585,7 @@ module RedmineContracts
     end
 
     def truncate_for_pdf(value, max_length)
-      text = value.to_s
-      return text if text.length <= max_length
-
-      "#{text[0, max_length - 3]}..."
+      value.to_s.truncate(max_length)
     end
   end
 end
