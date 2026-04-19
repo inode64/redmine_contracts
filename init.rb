@@ -31,5 +31,3 @@ end
 Rails.configuration.to_prepare do
   RedmineContracts::Patches.apply
 end
-
-RedmineContracts::Patches.apply
