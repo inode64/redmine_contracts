@@ -111,7 +111,7 @@
                 </td>
               <% end %>
               <% if show_category_editor %>
-                <td><%= render_category_editor(@contract, row[:issue]) %></td>
+                <td><%= render_category_editor(@contract, row[:issue], @project) %></td>
               <% end %>
             </tr>
             <% end %>

@@ -121,7 +121,6 @@ module RedmineContracts
 
       issue = Issue.find_by(id: params[:issue_id])
       return render_404 unless issue && @contract.reportable_issue?(issue)
-      return render_403 unless User.current.allowed_to?(:edit_issues, issue.project)
 
       new_value = params.dig(:issue, :custom_field_values, custom_field.id.to_s)
 

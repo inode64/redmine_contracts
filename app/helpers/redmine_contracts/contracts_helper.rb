@@ -4,16 +4,16 @@ module RedmineContracts
   module ContractsHelper
     def format_contract_hours(value) = format('%.2f', value.to_f)
 
-    def render_category_editor(contract, issue)
+    def render_category_editor(contract, issue, project = nil)
       custom_field = contract.report_category_custom_field
       return nil unless custom_field && issue
-      return nil unless User.current.allowed_to?(:edit_issues, issue.project)
+      project_context = project || @project || contract.project
 
       custom_value = issue.custom_field_values.find { |cv| cv.custom_field_id == custom_field.id } ||
                      CustomFieldValue.new(custom_field: custom_field, customized: issue)
 
       form_tag({ controller: 'redmine_contracts/contracts', action: 'update_category',
-                 project_id: contract.project, id: contract.id },
+                 project_id: project_context, id: contract.id },
                method: :post, class: 'inline-category-form', style: 'display:inline;') do
         safe_join([
                     hidden_field_tag(:issue_id, issue.id),
