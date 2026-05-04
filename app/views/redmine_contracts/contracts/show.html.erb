@@ -1,5 +1,14 @@
 <% content_for :header_tags do %>
   <%= javascript_include_tag 'redmine_contracts', plugin: 'redmine_contracts' %>
+  <style>
+    #new-contract-bonus-form.contract-bonus-form--collapsed {
+      display: none;
+    }
+
+    #new-contract-bonus-form.contract-bonus-form--collapsed:target {
+      display: block;
+    }
+  </style>
 <% end %>
 
 <div class="contextual">
@@ -76,7 +85,7 @@
   <%= l(:label_redmine_contract_bonuses) %>
   <% if @can_manage_contract %>
     <%= link_to l(:label_redmine_contract_add_bonus),
-                '#',
+                '#new-contract-bonus-form',
                 id: 'toggle-new-contract-bonus-form',
                 class: 'icon icon-add' %>
   <% end %>
@@ -142,7 +151,7 @@
 <% end %>
 
 <% if @can_manage_contract %>
-  <fieldset id="new-contract-bonus-form" class="box" style="display:none;">
+  <fieldset id="new-contract-bonus-form" class="box contract-bonus-form--collapsed">
 
     <%= labelled_form_for @bonus,
                           url: {

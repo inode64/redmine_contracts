@@ -22,7 +22,7 @@
     </p>
   <% end %>
 
-  <p id="contract_bonus_awarded_on_wrapper"><%= f.date_field :awarded_on, required: true %></p>
+  <p id="contract_bonus_awarded_on_wrapper"><%= f.date_field :awarded_on, required: true, id: 'contract_bonus_awarded_on' %></p>
   <p><%= f.text_field :name, required: true, size: 60, id: 'contract_bonus_name' %></p>
   <p><%= f.text_field :invoice_reference, size: 60 %></p>
   <p><%= f.text_field :hours_total, required: true, size: 10, id: 'contract_bonus_hours_total' %></p>

@@ -7,6 +7,8 @@ function initializeRedmineContractsBonusForm() {
   }
 
   formBox.dataset.redmineContractsInitialized = 'true';
+  formBox.classList.remove('contract-bonus-form--collapsed');
+  formBox.style.display = window.location.hash === '#new-contract-bonus-form' ? '' : 'none';
 
   var cancel = document.getElementById('cancel-new-contract-bonus-form');
   var continuePrevious = document.getElementById('continue_previous_bonus');
