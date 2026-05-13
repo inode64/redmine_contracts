@@ -134,11 +134,14 @@ module RedmineContracts
 
       issue = entry.issue
       return false unless issue
-      return false unless issue_version_allowed?(issue)
-      return true if imputation_custom_field_id.blank?
-      return false unless issue_has_custom_field?(issue, imputation_custom_field_id)
 
-      truthy_custom_value?(issue.custom_field_value(imputation_custom_field_id))
+      if imputation_custom_field_id.present? &&
+         issue_has_custom_field?(issue, imputation_custom_field_id) &&
+         truthy_custom_value?(issue.custom_field_value(imputation_custom_field_id))
+        return true
+      end
+
+      issue_version_allowed?(issue)
     end
 
     def selected_version_ids = normalize_version_ids(imputation_version_ids)
