@@ -29,11 +29,11 @@
               class: 'icon icon-stats' %>
   <% if @can_manage_contract %>
     <%= link_to l(:button_redmine_contract_recalculate),
-                { controller: 'redmine_contracts/contracts', action: 'recalculate', project_id: @project, id: @contract },
+                { controller: 'redmine_contracts/contracts', action: 'recalculate', project_id: @contract.project, id: @contract },
                 method: :post,
                 class: 'icon icon-reload' %>
     <%= link_to l(:button_edit),
-                { controller: 'redmine_contracts/contracts', action: 'edit', project_id: @project, id: @contract },
+                { controller: 'redmine_contracts/contracts', action: 'edit', project_id: @contract.project, id: @contract },
                 class: 'icon icon-edit' %>
   <% end %>
 </div>
@@ -123,7 +123,7 @@
                         {
                           controller: 'redmine_contracts/contract_bonuses',
                           action: 'edit',
-                          project_id: @project,
+                          project_id: @contract.project,
                           contract_id: @contract,
                           id: bonus
                         },
@@ -132,7 +132,7 @@
                         {
                           controller: 'redmine_contracts/contract_bonuses',
                           action: 'destroy',
-                          project_id: @project,
+                          project_id: @contract.project,
                           contract_id: @contract,
                           id: bonus
                         },
@@ -157,7 +157,7 @@
                           url: {
                             controller: 'redmine_contracts/contract_bonuses',
                             action: 'create',
-                            project_id: @project,
+                            project_id: @contract.project,
                             contract_id: @contract
                           } do |f| %>
       <%= render partial: 'redmine_contracts/contract_bonuses/form', locals: { f: f } %>

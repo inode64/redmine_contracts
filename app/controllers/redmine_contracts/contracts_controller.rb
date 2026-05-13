@@ -22,7 +22,7 @@ module RedmineContracts
 
     def show
       @contract_inherited = @contract.project_id != @project.id
-      @can_manage_contract = User.current.allowed_to?(:manage_redmine_contracts, @project) && !@contract_inherited
+      @can_manage_contract = User.current.allowed_to?(:manage_redmine_contracts, @contract.project)
       @bonus_rows = @contract.bonus_rows
       @courtesy_rows = @contract.courtesy_rows
       @courtesy_hours = @courtesy_rows.sum { |row| row[:hours].to_f }
