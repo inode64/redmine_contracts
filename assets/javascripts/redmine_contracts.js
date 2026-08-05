@@ -71,6 +71,10 @@ function initializeRedmineContractsBonusForm() {
       awardedOnInput.required = !enabled;
     }
     if (bonusNameInput) {
+      bonusNameInput.readOnly = false;
+      bonusNameInput.disabled = false;
+      bonusNameInput.removeAttribute('readonly');
+      bonusNameInput.removeAttribute('disabled');
       if (enabled && nextName.length > 0) {
         bonusNameInput.value = nextName;
       }

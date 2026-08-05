@@ -20,7 +20,7 @@ module RedmineContracts
       @bonus = @contract.bonuses.build(contract_bonus_params)
 
       if continuation_enabled && previous_bonus
-        @bonus.name = RedmineContracts::ContractBonus.next_correlative_name(previous_bonus.name)
+        @bonus.name = RedmineContracts::ContractBonus.next_correlative_name(previous_bonus.name) if @bonus.name.blank?
         @bonus.awarded_on = [Date.current, previous_bonus.awarded_on].max
       end
 
