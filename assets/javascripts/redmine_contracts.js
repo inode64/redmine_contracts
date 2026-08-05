@@ -71,7 +71,6 @@ function initializeRedmineContractsBonusForm() {
       awardedOnInput.required = !enabled;
     }
     if (bonusNameInput) {
-      bonusNameInput.readOnly = enabled;
       if (enabled && nextName.length > 0) {
         bonusNameInput.value = nextName;
       }
